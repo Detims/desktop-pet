@@ -1,0 +1,30 @@
+html,
+body,
+#root {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+}
+
+.pet-window {
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    user-select: none;
+}
+
+.pet-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    -webkit-user-drag: none;
+    cursor: pointer;
+}
+
+.pet-image.dragging {
+    cursor: grabbing;
+}
