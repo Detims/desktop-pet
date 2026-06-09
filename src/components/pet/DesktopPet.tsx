@@ -8,6 +8,8 @@ type PetState =
   | 'sleepy'
   | 'alert'
 
+const IDLE_BEFORE_CRAWL_MS = 5_000
+
 const petAnimations: Record<PetState, string> = {
   idle: '/pet/idle.png',
   happy: '/pet/happy.png',
@@ -34,6 +36,39 @@ export function DesktopPet() {
   const dragStartMouseRef = useRef({ x: 0, y: 0 })
   const dragStartWindowRef = useRef({ x: 0, y: 0 })
 
+  const idleTimerRef = useRef<number | null>(null)
+
+  const resetIdleTimer = () => {
+    window.desktopPet.stopCrawling()
+
+    if (idleTimerRef.current !== null) {
+      window.clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
+    }
+
+    idleTimerRef.current = window.setTimeout(() => {
+      window.desktopPet.startCrawling()
+    }, IDLE_BEFORE_CRAWL_MS)
+  }
+
+  const handleUserInteraction = () => {
+    if (isDraggingRef.current) return
+    resetIdleTimer()
+  }
+
+  useEffect(() => {
+    resetIdleTimer()
+
+    return () => {
+      if (idleTimerRef.current !== null) {
+        window.clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+
+      window.desktopPet.stopCrawling()
+    }
+  }, [])
+
   useEffect(() => {
     return window.desktopPet.onPetStateChanged((state) => {
       if (isPetState(state)) {
@@ -42,8 +77,8 @@ export function DesktopPet() {
     })
   }, [])
 
+  // Handle pet dragging
   useEffect(() => {
-    // Handle pet dragging
     const handleMouseMove = (event: MouseEvent) => {
       if (!isDraggingRef.current) return
 
@@ -65,8 +100,14 @@ export function DesktopPet() {
         holdTimerRef.current = null
       }
 
+      const wasDragging = isDraggingRef.current
+
       isDraggingRef.current = false
       setIsDragging(false)
+
+      if (wasDragging) {
+        resetIdleTimer()
+      }
     }
 
     window.addEventListener('mousemove', handleMouseMove)
@@ -82,6 +123,8 @@ export function DesktopPet() {
   const handleMouseDown = (event: React.MouseEvent) => {
     if (event.button !== 0) return
 
+    resetIdleTimer()
+
     isMouseDownRef.current = true
 
     dragStartMouseRef.current = {
@@ -94,6 +137,8 @@ export function DesktopPet() {
 
       const position = await window.desktopPet.getWindowPosition()
 
+      window.desktopPet.stopCrawling()
+
       dragStartWindowRef.current = position
       isDraggingRef.current = true
       setIsDragging(true)
@@ -102,6 +147,8 @@ export function DesktopPet() {
 
   const handleContextMenu = (event: React.MouseEvent) => {
     event.preventDefault()
+
+    resetIdleTimer()
 
     if (holdTimerRef.current !== null) {
       window.clearTimeout(holdTimerRef.current)
@@ -115,6 +162,7 @@ export function DesktopPet() {
     <div
       className="pet-window"
       onMouseDown={handleMouseDown}
+      onMouseMove={handleUserInteraction}
       onContextMenu={handleContextMenu}
     >
       <img

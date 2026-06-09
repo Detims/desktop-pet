@@ -23,5 +23,13 @@ contextBridge.exposeInMainWorld('desktopPet', {
 
     setWindowPosition: (position) => {
         ipcRenderer.send('pet:set-window-position', position);
+    },
+    
+    startCrawling: () => {
+        ipcRenderer.send('pet:start-crawling')
+    },
+
+    stopCrawling: () => {
+        ipcRenderer.send('pet:stop-crawling')
     }
 });

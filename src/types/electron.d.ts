@@ -12,10 +12,13 @@ declare global {
 
       getWindowPosition: () => Promise<{ x: number; y: number }>
 
-      setWindowPosition: (position: {
-        x: number
-        y: number
-      }) => void
+      setWindowPosition: (position: { x: number, y: number }) => void
+      
+      startCrawling: () => void
+
+      stopCrawling: () => void
+
+      onCrawlingStopped: () => void
     }
   }
 }
