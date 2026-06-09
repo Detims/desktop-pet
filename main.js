@@ -23,10 +23,9 @@ const PET_STATES = [
 
 const chooseRandomCrawlDirection = () => {
   const speed = 1.2
-  const angle = Math.random() * Math.PI * 2
-
+  
   crawlVelocity = {
-    x: Math.random() > 0.5 ? 1 : -1,
+    x: Math.random() > 0.5 ? speed : -speed,
     y: 0
   }
 }
@@ -158,20 +157,31 @@ const stopPetCrawling = ({ byUser = false, scheduleRestart = true } = {}) => {
 }
 
 const createPetContextMenu = (win) => {
-    return Menu.buildFromTemplate(
-        PET_STATES.map((state) => ({
-            label: state.charAt(0).toUpperCase() + state.slice(1),
-            click: () => {
-                win.webContents.send('pet:set-state', state);
-            }
+    return Menu.buildFromTemplate([
+      {
+        label: 'Emotions',
+        submenu: PET_STATES.map((state) => ({
+          label: state.charAt(0).toUpperCase() + state.slice(1),
+          click: () => { win.webContents.send('pet:set-state', state) }
         }))
-    );
+      },
+      {
+        label: 'Talk',
+        click: () => {
+          win.webContents.send('pet:talk')
+        }
+      },
+      {
+        label: 'Exit',
+        click: () => { win.close() }
+      }
+    ]);
 }
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
-    width: 320,
-    height: 320,
+    width: 360,
+    height: 440,
     frame: false,
     transparent: true,
     resizable: false,
@@ -244,12 +254,6 @@ const createWindow = () => {
   } else {
     mainWindow.loadFile(path.join(__dirname, "dist/index.html"));
   }
-
-  // Start crawl timer after window opens
-  mainWindow.webContents.once('did-finish-load', () => {
-    crawlStoppedByUser = false
-    scheduleCrawlAfterIdle()
-  })
 
   return mainWindow;
 }

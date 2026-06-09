@@ -19,6 +19,8 @@ declare global {
       stopCrawling: () => void
 
       onCrawlingStopped: () => void
+
+      onPetTalk: (callback: () => void) => () => void
     }
   }
 }

@@ -31,5 +31,17 @@ contextBridge.exposeInMainWorld('desktopPet', {
 
     stopCrawling: () => {
         ipcRenderer.send('pet:stop-crawling')
+    },
+
+    onPetTalk: (callback) => {
+        const listener = () => {
+            callback()
+        }
+
+        ipcRenderer.on('pet:talk', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:talk', listener)
+        }
     }
 });
