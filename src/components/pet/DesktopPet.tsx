@@ -66,26 +66,67 @@ export function DesktopPet() {
   const speechTimerRef = useRef<number | null>(null)
   const isSpeakingRef = useRef(false)
 
+  const statsHoverTimerRef = useRef<number | null>(null)
+  const latestStatsPositionRef = useRef({ x: 0, y: 0 })
+  const isHoveringPetRef = useRef(false)
+  const isStatsMenuVisibleRef = useRef(false)
+
+  useEffect(() => {
+    return () => {
+      if (statsHoverTimerRef.current !== null) {
+        window.clearTimeout(statsHoverTimerRef.current)
+        statsHoverTimerRef.current = null
+      }
+    }
+  }, [])
 
   const handleMouseEnter = (event: React.MouseEvent) => {
     if (isContextMenuOpenRef.current) return
 
-    window.desktopPet.showStatsMenu({
+    isHoveringPetRef.current = true
+    isStatsMenuVisibleRef.current = true
+
+    latestStatsPositionRef.current = {
       x: event.screenX,
       y: event.screenY
-    })
+    }
+
+    if (statsHoverTimerRef.current !== null) {
+      window.clearTimeout(statsHoverTimerRef.current)
+    }
+
+    statsHoverTimerRef.current = window.setTimeout(() => {
+      statsHoverTimerRef.current = null
+
+      if (!isHoveringPetRef.current) return
+      if (isContextMenuOpenRef.current) return
+
+      isStatsMenuVisibleRef.current = true
+      window.desktopPet.showStatsMenu(latestStatsPositionRef.current)
+    }, 500) // Wait half a second before stats menu appears, may need to decrease by <100ms depending on feel
   }
 
   const handleStatsMouseMove = (event: React.MouseEvent) => {
-    if (isContextMenuOpenRef.current) return
-
-    window.desktopPet.moveStatsMenu({
+    latestStatsPositionRef.current = {
       x: event.screenX,
       y: event.screenY
-    })
+    }
+
+    if (isContextMenuOpenRef.current) return
+    if (!isStatsMenuVisibleRef.current) return
+
+    window.desktopPet.moveStatsMenu(latestStatsPositionRef.current)
   }
 
   const handleMouseLeave = () => {
+    isHoveringPetRef.current = false
+    isStatsMenuVisibleRef.current = false
+
+    if (statsHoverTimerRef.current !== null) {
+      window.clearTimeout(statsHoverTimerRef.current)
+      statsHoverTimerRef.current = null
+    }
+
     window.desktopPet.hideStatsMenu()
   }
 
@@ -256,6 +297,14 @@ export function DesktopPet() {
     event.preventDefault()
 
     isContextMenuOpenRef.current = true
+    isHoveringPetRef.current = false
+    isStatsMenuVisibleRef.current = false
+
+    if (statsHoverTimerRef.current !== null) {
+      window.clearTimeout(statsHoverTimerRef.current)
+      statsHoverTimerRef.current = null
+    }
+
     window.desktopPet.hideStatsMenu()
 
     if (holdTimerRef.current !== null) {
