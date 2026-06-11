@@ -60,10 +60,36 @@ export function DesktopPet() {
 
   const idleTimerRef = useRef<number | null>(null)
 
+  const isContextMenuOpenRef = useRef(false)
+
   const [speechText, setSpeechText] = useState<string | null>(null)
   const speechTimerRef = useRef<number | null>(null)
   const isSpeakingRef = useRef(false)
 
+
+  const handleMouseEnter = (event: React.MouseEvent) => {
+    if (isContextMenuOpenRef.current) return
+
+    window.desktopPet.showStatsMenu({
+      x: event.screenX,
+      y: event.screenY
+    })
+  }
+
+  const handleStatsMouseMove = (event: React.MouseEvent) => {
+    if (isContextMenuOpenRef.current) return
+
+    window.desktopPet.moveStatsMenu({
+      x: event.screenX,
+      y: event.screenY
+    })
+  }
+
+  const handleMouseLeave = () => {
+    window.desktopPet.hideStatsMenu()
+  }
+
+  // Display a speech bubble for 3 seconds
   const say = (text: string, durationMs = 3000) => {
     if (isSpeakingRef.current) return
 
@@ -78,6 +104,7 @@ export function DesktopPet() {
     speechTimerRef.current = window.setTimeout(() => {
       setSpeechText(null)
       speechTimerRef.current = null
+      isSpeakingRef.current = false
     }, durationMs)
   }
 
@@ -110,6 +137,12 @@ export function DesktopPet() {
   useEffect(() => {
     return window.desktopPet.onPetTalk(() => {
       say(randomChoice(CLICK_PHRASES))
+    })
+  }, [])
+
+  useEffect(() => {
+    return window.desktopPet.onContextMenuClosed(() => {
+      isContextMenuOpenRef.current = false
     })
   }, [])
 
@@ -222,36 +255,41 @@ export function DesktopPet() {
   const handleContextMenu = (event: React.MouseEvent) => {
     event.preventDefault()
 
-    resetIdleTimer()
+    isContextMenuOpenRef.current = true
+    window.desktopPet.hideStatsMenu()
 
     if (holdTimerRef.current !== null) {
       window.clearTimeout(holdTimerRef.current)
       holdTimerRef.current = null
     }
 
+    resetIdleTimer()
     window.desktopPet.showPetMenu()
   }
 
   return (
     <div
-    className="pet-window"
-    onMouseDown={handleMouseDown}
-    onMouseUp={handleMouseUp}
-    onContextMenu={handleContextMenu}
-  >
-    {speechText && (
-      <div className="speech-bubble">
-        {speechText}
-      </div>
-    )}
+      className="pet-window"
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onContextMenu={handleContextMenu}
+    >
+      {speechText && (
+        <div className="speech-bubble">
+          {speechText}
+        </div>
+      )}
 
-    <img
-      key={petState}
-      src={petAnimations[petState]}
-      alt={`Pet state: ${petState}`}
-      className={`pet-image ${isDragging ? 'dragging' : ''}`}
-      draggable={false}
-    />
-  </div>
+      <img
+        key={petState}
+        src={petAnimations[petState]}
+        alt={`Pet state: ${petState}`}
+        className={`pet-image ${isDragging ? 'dragging' : ''}`}
+        draggable={false}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onMouseMove={handleStatsMouseMove}
+      />
+    </div>
   )
 }

@@ -26,7 +26,6 @@ body,
     object-fit: contain;
     transform: translateX(-50%);
     -webkit-user-drag: none;
-    cursor: pointer;
 }
 
 .pet-image.dragging {
@@ -60,4 +59,66 @@ body,
   border-width: 8px 8px 0 8px;
   border-style: solid;
   border-color: white transparent transparent transparent;
+}
+
+.pet-stats-menu {
+  position: fixed;
+  min-width: 190px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(24, 24, 27, 0.94);
+  color: white;
+  font-size: 12px;
+  line-height: 1.2;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.pet-stats-title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pet-stat-row {
+  margin-bottom: 8px;
+}
+
+.pet-stat-row:last-child {
+  margin-bottom: 0;
+}
+
+.pet-stat-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.pet-stat-bar {
+  position: relative;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.pet-stat-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.pet-stat-bar-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #111;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.35);
 }

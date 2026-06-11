@@ -33,6 +33,18 @@ contextBridge.exposeInMainWorld('desktopPet', {
         ipcRenderer.send('pet:stop-crawling')
     },
 
+    onContextMenuClosed: (callback) => {
+        const listener = () => {
+            callback()
+        }
+
+        ipcRenderer.on('pet:context-menu-closed', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:context-menu-closed', listener)
+        }
+    },
+
     onPetTalk: (callback) => {
         const listener = () => {
             callback()
@@ -43,5 +55,17 @@ contextBridge.exposeInMainWorld('desktopPet', {
         return () => {
             ipcRenderer.removeListener('pet:talk', listener)
         }
+    },
+
+    showStatsMenu: (position) => {
+        ipcRenderer.send('pet:show-stats-menu', position)
+    },
+
+    moveStatsMenu: (position) => {
+        ipcRenderer.send('pet:move-stats-menu', position)
+    },
+
+    hideStatsMenu: () => {
+        ipcRenderer.send('pet:hide-stats-menu')
     }
 });

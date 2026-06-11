@@ -20,7 +20,15 @@ declare global {
 
       onCrawlingStopped: () => void
 
+      onContextMenuClosed: (callback: () => void) => () => void 
+
       onPetTalk: (callback: () => void) => () => void
+
+      showStatsMenu: (position: { x: number, y: number }) => void
+      
+      moveStatsMenu: (position: WindowPosition ) => void
+
+      hideStatsMenu: () => void
     }
   }
 }

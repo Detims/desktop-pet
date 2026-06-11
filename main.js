@@ -2,11 +2,13 @@ const path = require('node:path');
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
 
 let mainWindow = null
+let statsWindow = null
 let crawlTimer = null
 let crawlDecisionTimer = null
 let crawlIdleTimer = null
 let crawlPosition = null
 let isCrawling = false
+let isContextMenuOpen = false
 let crawlStoppedByUser = false
 let crawlVelocity = { x: 1, y: 0 }
 
@@ -178,6 +180,42 @@ const createPetContextMenu = (win) => {
     ]);
 }
 
+const createStatsWindow = () => {
+  statsWindow = new BrowserWindow({
+    width: 240,
+    height: 280,
+    parent: mainWindow,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: false,
+    focusable: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+
+  statsWindow.setAlwaysOnTop(true, 'screen-saver')
+  statsWindow.setIgnoreMouseEvents(true)
+  statsWindow.hide()
+
+  if (!app.isPackaged) {
+    statsWindow.loadURL('http://127.0.0.1:5173/#/stats')
+  } else {
+    statsWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
+      hash: '/stats'
+    })
+  }
+
+  return statsWindow
+}
+
 const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 360,
@@ -201,10 +239,22 @@ const createWindow = () => {
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }) // MacOS
 
   const petMenu = createPetContextMenu(mainWindow);
+  createStatsWindow()
 
   ipcMain.on('pet:show-context-menu', () => {
+    isContextMenuOpen = true
+
+    if (statsWindow) 
+      statsWindow.hide()
+
     petMenu.popup({
-      window: mainWindow
+      window: mainWindow,
+      callback: () => {
+        isContextMenuOpen = false
+
+        if (mainWindow && !mainWindow.isDestroyed()) 
+          mainWindow.webContents.send('pet:context-menu-closed')
+      }
     })
   });
 
@@ -246,6 +296,35 @@ const createWindow = () => {
       byUser: true,
       scheduleRestart: false
     })
+  })
+
+  ipcMain.on('pet:show-stats-menu', (_event, position) => {
+    if (isContextMenuOpen) return
+    if (!statsWindow || statsWindow.isDestroyed()) return
+
+    statsWindow.setPosition(
+      Math.round(position.x),
+      Math.round(position.y)
+    )
+
+    statsWindow.showInactive()
+  })
+
+  ipcMain.on('pet:move-stats-menu', (_event, position) => {
+    if (isContextMenuOpen) return
+    if (!statsWindow || statsWindow.isDestroyed()) return
+    if (!statsWindow.isVisible()) return
+
+    statsWindow.setPosition(
+      Math.round(position.x),
+      Math.round(position.y)
+    )
+  })
+
+  ipcMain.on('pet:hide-stats-menu', () => {
+    if (!statsWindow || statsWindow.isDestroyed()) return
+
+    statsWindow.hide()
   })
 
   // Run npm run dev, open new terminal, npm run start
