@@ -29,6 +29,8 @@ declare global {
       moveStatsMenu: (position: WindowPosition ) => void
 
       hideStatsMenu: () => void
+
+      closeShopWindow: () => void
     }
   }
 }

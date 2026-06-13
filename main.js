@@ -3,6 +3,8 @@ const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
 
 let mainWindow = null
 let statsWindow = null
+let shopWindow = null
+
 let crawlTimer = null
 let crawlDecisionTimer = null
 let crawlIdleTimer = null
@@ -30,6 +32,47 @@ const chooseRandomCrawlDirection = () => {
     x: Math.random() > 0.5 ? speed : -speed,
     y: 0
   }
+}
+
+const createShopWindow = () => {
+  if (shopWindow && !shopWindow.isDestroyed()) {
+    shopWindow.focus()
+    return shopWindow
+  }
+
+  shopWindow = new BrowserWindow({
+    width: 720,
+    height: 520,
+    minWidth: 520,
+    minHeight: 420,
+    frame: false,
+    transparent: false,
+    resizable: true,
+    alwaysOnTop: false,
+    skipTaskbar: true,
+    backgroundColor: '#111827',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+
+  shopWindow.setMenuBarVisibility(false)
+
+  shopWindow.on('closed', () => {
+    shopWindow = null
+  })
+
+  if (!app.isPackaged) {
+    shopWindow.loadURL('http://127.0.0.1:5173/#/shop')
+  } else {
+    shopWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
+      hash: '/shop'
+    })
+  }
+
+  return shopWindow
 }
 
 const scheduleCrawlAfterIdle = () => {
@@ -174,6 +217,16 @@ const createPetContextMenu = (win) => {
         }
       },
       {
+        label: 'Shop',
+        click: () => {
+          if (statsWindow && !statsWindow.isDestroyed()) {
+            statsWindow.hide()
+          }
+
+          createShopWindow()
+        }
+      },
+      {
         label: 'Exit',
         click: () => { win.close() }
       }
@@ -237,6 +290,16 @@ const createWindow = () => {
   // Keep pet above normal windows and fullscreen apps
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }) // MacOS
+
+  mainWindow.on('closed', () => {
+    if (statsWindow && !statsWindow.isDestroyed()) 
+      statsWindow.close()
+
+    if (shopWindow && !shopWindow.isDestroyed())
+      shopWindow.close()
+
+    mainWindow = null
+  })
 
   const petMenu = createPetContextMenu(mainWindow);
   createStatsWindow()
@@ -325,6 +388,12 @@ const createWindow = () => {
     if (!statsWindow || statsWindow.isDestroyed()) return
 
     statsWindow.hide()
+  })
+
+  ipcMain.on('shop:close', () => {
+    if (!shopWindow || shopWindow.isDestroyed()) return
+
+    shopWindow.close()
   })
 
   // Run npm run dev, open new terminal, npm run start

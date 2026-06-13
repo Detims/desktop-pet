@@ -67,5 +67,9 @@ contextBridge.exposeInMainWorld('desktopPet', {
 
     hideStatsMenu: () => {
         ipcRenderer.send('pet:hide-stats-menu')
+    },
+
+    closeShopWindow: () => {
+        ipcRenderer.send('shop:close')
     }
 });
