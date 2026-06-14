@@ -10,6 +10,7 @@ type PetState =
 
 const HOLD_TO_DRAG_MS = 100
 const IDLE_BEFORE_CRAWL_MS = 5_000
+const STATS_HOVER_DELAY_MS = 600
 const TALK_INTERVAL = 30_000
 
 const petAnimations: Record<PetState, string> = {
@@ -68,8 +69,23 @@ export function DesktopPet() {
 
   const statsHoverTimerRef = useRef<number | null>(null)
   const latestStatsPositionRef = useRef({ x: 0, y: 0 })
+
   const isHoveringPetRef = useRef(false)
   const isStatsMenuVisibleRef = useRef(false)
+  const isStatsMenuWaitingRef = useRef(false)
+
+  const cancelStatsMenu = () => {
+    isHoveringPetRef.current = false
+    isStatsMenuVisibleRef.current = false
+    isStatsMenuWaitingRef.current = false
+
+    if (statsHoverTimerRef.current !== null) {
+      window.clearTimeout(statsHoverTimerRef.current)
+      statsHoverTimerRef.current = null
+    }
+
+    window.desktopPet.hideStatsMenu()
+}
 
   useEffect(() => {
     return () => {
@@ -82,9 +98,12 @@ export function DesktopPet() {
 
   const handleMouseEnter = (event: React.MouseEvent) => {
     if (isContextMenuOpenRef.current) return
+    if (isDraggingRef.current) return
+    if (isStatsMenuVisibleRef.current) return
+    if (isStatsMenuWaitingRef.current) return
 
     isHoveringPetRef.current = true
-    isStatsMenuVisibleRef.current = true
+    isStatsMenuVisibleRef.current = false
 
     latestStatsPositionRef.current = {
       x: event.screenX,
@@ -97,13 +116,16 @@ export function DesktopPet() {
 
     statsHoverTimerRef.current = window.setTimeout(() => {
       statsHoverTimerRef.current = null
+      isStatsMenuWaitingRef.current = false
 
       if (!isHoveringPetRef.current) return
       if (isContextMenuOpenRef.current) return
+      if (isDraggingRef.current) return
+      if (isStatsMenuVisibleRef.current) return
 
       isStatsMenuVisibleRef.current = true
       window.desktopPet.showStatsMenu(latestStatsPositionRef.current)
-    }, 500) // Wait half a second before stats menu appears, may need to decrease by <100ms depending on feel
+    }, STATS_HOVER_DELAY_MS) // Wait half a second before stats menu appears, may need to decrease by <100ms depending on feel
   }
 
   const handleStatsMouseMove = (event: React.MouseEvent) => {
@@ -114,20 +136,13 @@ export function DesktopPet() {
 
     if (isContextMenuOpenRef.current) return
     if (!isStatsMenuVisibleRef.current) return
+    if (isDraggingRef.current) return
 
     window.desktopPet.moveStatsMenu(latestStatsPositionRef.current)
   }
 
   const handleMouseLeave = () => {
-    isHoveringPetRef.current = false
-    isStatsMenuVisibleRef.current = false
-
-    if (statsHoverTimerRef.current !== null) {
-      window.clearTimeout(statsHoverTimerRef.current)
-      statsHoverTimerRef.current = null
-    }
-
-    window.desktopPet.hideStatsMenu()
+    cancelStatsMenu()
   }
 
   // Display a speech bubble for 3 seconds
@@ -263,6 +278,7 @@ export function DesktopPet() {
       const position = await window.desktopPet.getWindowPosition()
 
       window.desktopPet.stopCrawling()
+      cancelStatsMenu()
 
       dragStartWindowRef.current = position
       isDraggingRef.current = true
@@ -297,15 +313,7 @@ export function DesktopPet() {
     event.preventDefault()
 
     isContextMenuOpenRef.current = true
-    isHoveringPetRef.current = false
-    isStatsMenuVisibleRef.current = false
-
-    if (statsHoverTimerRef.current !== null) {
-      window.clearTimeout(statsHoverTimerRef.current)
-      statsHoverTimerRef.current = null
-    }
-
-    window.desktopPet.hideStatsMenu()
+    cancelStatsMenu()
 
     if (holdTimerRef.current !== null) {
       window.clearTimeout(holdTimerRef.current)
