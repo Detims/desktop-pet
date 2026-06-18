@@ -71,5 +71,45 @@ contextBridge.exposeInMainWorld('desktopPet', {
 
     closeShopWindow: () => {
         ipcRenderer.send('shop:close')
+    },
+
+    startWork: (workOption) => {
+        ipcRenderer.send('pet:start-work', workOption)
+    },
+
+    cancelWork: () => {
+        ipcRenderer.send('pet:cancel-work')
+    },
+
+    getActiveWork: () => {
+        return ipcRenderer.invoke('pet:get-active-work')
+    },
+
+    onWorkUpdated: (callback) => {
+        const listener = (_event, activeWork) => {
+            callback(activeWork)
+        }
+
+        ipcRenderer.on('pet:work-updated', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:work-updated', listener)
+        }
+    },
+
+    onWorkCompleted: (callback) => {
+        const listener = (_event, completedWork) => {
+            callback(completedWork)
+        }
+
+        ipcRenderer.on('pet:work-completed', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:work-completed', listener)
+        }
+    },
+
+    closeWorkWindow: () => {
+        ipcRenderer.send('work:close')
     }
 });

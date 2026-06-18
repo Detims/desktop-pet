@@ -31,6 +31,18 @@ declare global {
       hideStatsMenu: () => void
 
       closeShopWindow: () => void
+
+      startWork: (workOption: PetWorkOption) => void
+
+      cancelWork: () => void
+
+      getActiveWork: () => Promise<ActivePetWork>
+
+      onWorkUpdated: (callback: (activeWork: ActivePetWork) => void) => () => void
+
+      onWorkCompleted: (callback: (completedWork: NonNullable<ActivePetWork>) => void) => () => void
+      
+      closeWorkWindow: () => void
     }
   }
 }

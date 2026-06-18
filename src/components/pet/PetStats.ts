@@ -5,6 +5,8 @@ export type PetStat = {
 }
 
 export const PET_STATS: PetStat[] = [
+  { label: 'Level', value: 1, max: 99 },
+  { label: 'Currency', value: 100, max: 999 },
   { label: 'Health', value: 85, max: 100 },
   { label: 'Hunger', value: 62, max: 100 },
   { label: 'Thirst', value: 40, max: 100 },

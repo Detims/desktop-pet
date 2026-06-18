@@ -4,6 +4,7 @@ const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
 let mainWindow = null
 let statsWindow = null
 let shopWindow = null
+let workWindow = null
 
 let crawlTimer = null
 let crawlDecisionTimer = null
@@ -13,6 +14,8 @@ let isCrawling = false
 let isContextMenuOpen = false
 let crawlStoppedByUser = false
 let crawlVelocity = { x: 1, y: 0 }
+let activeWork = null
+let workTimer = null
 
 const IDLE_BEFORE_CRAWL_MS = 5_000
 
@@ -24,6 +27,47 @@ const PET_STATES = [
   'sleepy',
   'alert'
 ];
+
+const createWorkWindow = () => {
+  if (workWindow && !workWindow.isDestroyed()) {
+    workWindow.focus()
+    return workWindow
+  }
+
+  workWindow = new BrowserWindow({
+    width: 720,
+    height: 520,
+    minWidth: 520,
+    minHeight: 420,
+    frame: false,
+    transparent: false,
+    resizable: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    backgroundColor: '#111827',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+
+  workWindow.setMenuBarVisibility(false)
+
+  workWindow.on('closed', () => {
+    workWindow = null
+  })
+
+  if (!app.isPackaged) {
+    workWindow.loadURL('http://127.0.0.1:5173/#/work')
+  } else {
+    workWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
+      hash: '/work'
+    })
+  }
+
+  return workWindow
+}
 
 const chooseRandomCrawlDirection = () => {
   const speed = 1.2
@@ -227,16 +271,26 @@ const createPetContextMenu = (win) => {
         }
       },
       {
+        label: 'Work',
+        click: () => {
+          if (statsWindow && !statsWindow.isDestroyed()) {
+            statsWindow.hide()
+          }
+          
+          createWorkWindow()
+        }
+      },
+      {
         label: 'Exit',
         click: () => { win.close() }
-      }
+      },
     ]);
 }
 
 const createStatsWindow = () => {
   statsWindow = new BrowserWindow({
     width: 240,
-    height: 280,
+    height: 360,
     parent: mainWindow,
     frame: false,
     transparent: true,
@@ -298,6 +352,15 @@ const createWindow = () => {
     if (shopWindow && !shopWindow.isDestroyed())
       shopWindow.close()
 
+    if (workWindow && !workWindow.isDestroyed())
+      workWindow.close()
+
+    if (workTimer) {
+      clearInterval(workTimer)
+      workTimer = null
+    }
+
+    activeWork = null
     mainWindow = null
   })
 
@@ -394,6 +457,85 @@ const createWindow = () => {
     if (!shopWindow || shopWindow.isDestroyed()) return
 
     shopWindow.close()
+  })
+
+  const sendWorkUpdate = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('pet:work-updated', activeWork)
+    }
+
+    if (workWindow && !workWindow.isDestroyed()) {
+      workWindow.webContents.send('pet:work-updated', activeWork)
+    }
+  }
+
+  ipcMain.on('pet:start-work', (_event, workOption) => {
+    if (activeWork) return
+
+    const startedAt = Date.now()
+    const endsAt = startedAt + workOption.durationSeconds * 1000
+
+    activeWork = {
+      id: workOption.id,
+      name: workOption.name,
+      currencyReward: workOption.currencyReward,
+      startedAt,
+      endsAt,
+      remainingSeconds: workOption.durationSeconds
+    }
+
+    sendWorkUpdate()
+
+    workTimer = setInterval(() => {
+      if (!activeWork) return
+
+      const remainingMs = activeWork.endsAt - Date.now()
+      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+
+      activeWork = {
+        ...activeWork,
+        remainingSeconds
+      }
+
+      sendWorkUpdate()
+
+      if (remainingSeconds <= 0) {
+        clearInterval(workTimer)
+        workTimer = null
+
+        const completedWork = activeWork
+        activeWork = null
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('pet:work-completed', completedWork)
+        }
+
+        if (workWindow && !workWindow.isDestroyed()) {
+          workWindow.webContents.send('pet:work-completed', completedWork)
+        }
+
+        sendWorkUpdate()
+      }
+    }, 1000)
+  })
+
+  ipcMain.on('pet:cancel-work', () => {
+    if (workTimer) {
+      clearInterval(workTimer)
+      workTimer = null
+    }
+
+    activeWork = null
+    sendWorkUpdate()
+  })
+
+  ipcMain.handle('pet:get-active-work', () => {
+    return activeWork
+  })
+
+  ipcMain.on('work:close', () => {
+    if (!workWindow || workWindow.isDestroyed()) return
+    workWindow.close()
   })
 
   // Run npm run dev, open new terminal, npm run start

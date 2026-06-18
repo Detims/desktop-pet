@@ -8,6 +8,15 @@ type PetState =
   | 'sleepy'
   | 'alert'
 
+type ActiveWork = {
+  id: string
+  name: string
+  currencyReward: number
+  startedAt: number
+  endsAt: number
+  remainingSeconds: number
+} | null
+
 const HOLD_TO_DRAG_MS = 100
 const IDLE_BEFORE_CRAWL_MS = 5_000
 const STATS_HOVER_DELAY_MS = 600
@@ -48,6 +57,13 @@ function randomChoice<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
 }
 
+const formatWorkTime = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+}
+
 export function DesktopPet() {
   const [petState, setPetState] = useState<PetState>('idle')
   const [isDragging, setIsDragging] = useState(false)
@@ -73,6 +89,16 @@ export function DesktopPet() {
   const isHoveringPetRef = useRef(false)
   const isStatsMenuVisibleRef = useRef(false)
   const isStatsMenuWaitingRef = useRef(false)
+
+  const [activeWork, setActiveWork] = useState<ActiveWork>(null)
+
+  useEffect(() => {
+    window.desktopPet.getActiveWork().then(setActiveWork)
+
+    return window.desktopPet.onWorkUpdated((nextWork) => {
+      setActiveWork(nextWork)
+    })
+  }, [])
 
   const cancelStatsMenu = () => {
     isHoveringPetRef.current = false
@@ -334,6 +360,22 @@ export function DesktopPet() {
       {speechText && (
         <div className="speech-bubble">
           {speechText}
+        </div>
+      )}
+
+      {activeWork && (
+        <div className="pet-work-overlay">
+          <div>
+            <strong>{activeWork.name}</strong>
+            <span>{formatWorkTime(activeWork.remainingSeconds)} left</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => window.desktopPet.cancelWork()}
+          >
+            Cancel
+          </button>
         </div>
       )}
 
