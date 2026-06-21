@@ -24,10 +24,31 @@ export type ActivePetWork = {
 export type PetSave = {
   currency: number
   level: number
+  tasks: PetTask[]
 }
 
 export type PurchaseResult = {
   success: boolean
   reason?: string
   save: PetSave
+}
+
+export type PetTask = {
+  id: string
+  title: string
+  notes: string
+  completed: boolean
+  createdAt: number
+}
+
+export type AddTaskInput = {
+  title: string
+  notes: string
+}
+
+export type TaskResult = {
+  success: boolean
+  reason?: string
+  task?: PetTask
+  tasks: PetTask[]
 }

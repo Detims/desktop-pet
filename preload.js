@@ -131,5 +131,37 @@ contextBridge.exposeInMainWorld('desktopPet', {
         return () => {
             ipcRenderer.removeListener('pet:save-updated', listener)
         }
+    },
+
+    getTasks: () => {
+        return ipcRenderer.invoke('pet:get-tasks')
+    },
+
+    addTask: (taskInput) => {
+        return ipcRenderer.invoke('pet:add-task', taskInput)
+    },
+
+    updateTask: (task) => {
+        return ipcRenderer.invoke('pet:update-task', task)
+    },
+
+    deleteTask: (taskId) => {
+        return ipcRenderer.invoke('pet:delete-task', taskId)
+    },
+
+    onTasksUpdated: (callback) => {
+        const listener = (_event, tasks) => {
+            callback(tasks)
+        }
+
+        ipcRenderer.on('pet:tasks-updated', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:tasks-updated', listener)
+        }
+    },
+
+    closeTasksWindow: () => {
+        ipcRenderer.send('tasks:close')
     }
 });

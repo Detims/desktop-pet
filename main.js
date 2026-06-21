@@ -1,10 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const crytpo = require('node:crypto')
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
 
 const DEFAULT_PET_SAVE = {
   currency: 100,
   level: 1,
+  tasks: [],
   windows: {
     shop: null,
     work: null
@@ -33,6 +35,7 @@ const loadPetSave = () => {
     petSave = {
       ...DEFAULT_PET_SAVE,
       ...parsedSave,
+      tasks: Array.isArray(parsedSave.tasks) ? parsedSave.tasks : [],
       windows: {
         ...DEFAULT_PET_SAVE.windows,
         ...(parsedSave.windows ?? {})
@@ -113,22 +116,11 @@ const ensureWindowBoundsAreVisible = (bounds) => {
   }
 }
 
-const updateCurrency = (amount) => {
-  petSave = {
-    ...petSave,
-    currency: Math.max(0, petSave.currency + amount)
-  }
-
-  savePetSave()
-  broadcastPetSave()
-
-  return petSave.currency
-}
-
 let mainWindow = null
 let statsWindow = null
 let shopWindow = null
 let workWindow = null
+let tasksWindow = null
 
 let crawlTimer = null
 let crawlDecisionTimer = null
@@ -151,6 +143,79 @@ const PET_STATES = [
   'sleepy',
   'alert'
 ];
+
+const broadcastTasks = () => {
+  const windows = [mainWindow, tasksWindow]
+
+  for (const win of windows) {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('pet:tasks-updated', petSave.tasks)
+    }
+  }
+}
+
+const createTasksWindow = () => {
+  if (tasksWindow && !tasksWindow.isDestroyed()) {
+    tasksWindow.focus()
+    return tasksWindow
+  }
+
+  const bounds = ensureWindowBoundsAreVisible(
+    getSavedWindowBounds('tasks', {
+      width: 720,
+      height: 520
+    })
+  )
+
+  tasksWindow = new BrowserWindow({
+    ...bounds,
+    minWidth: 520,
+    minHeight: 420,
+    frame: false,
+    transparent: false,
+    resizable: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    backgroundColor: '#111827',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+
+  tasksWindow.setMenuBarVisibility(false)
+
+  tasksWindow.on('close', () => {
+    saveWindowBounds('tasks', tasksWindow)
+  })
+
+  tasksWindow.on('closed', () => {
+    tasksWindow = null
+  })
+
+  if (!app.isPackaged) {
+    tasksWindow.loadURL('http://127.0.0.1:5173/#/tasks')
+  } else {
+    tasksWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
+      hash: '/tasks'
+    })
+  }
+
+  return tasksWindow
+}
+
+const updateCurrency = (amount) => {
+  petSave = {
+    ...petSave,
+    currency: Math.max(0, petSave.currency + amount)
+  }
+
+  savePetSave()
+  broadcastPetSave()
+
+  return petSave.currency
+}
 
 const createWorkWindow = () => {
   if (workWindow && !workWindow.isDestroyed()) {
@@ -429,6 +494,16 @@ const createPetContextMenu = (win) => {
         }
       },
       {
+        label: 'Tasks',
+        click: () => {
+          if (statsWindow && !statsWindow.isDestroyed()) {
+            statsWindow.hide()
+          }
+
+          createTasksWindow()
+        }
+      },
+      {
         label: 'Exit',
         click: () => { win.close() }
       },
@@ -502,6 +577,10 @@ const createWindow = () => {
 
     if (workWindow && !workWindow.isDestroyed())
       workWindow.close()
+
+    if (tasksWindow && !tasksWindow.isDestroyed()) {
+      tasksWindow.close()
+    }   
 
     if (workTimer) {
       clearInterval(workTimer)
@@ -725,6 +804,97 @@ const createWindow = () => {
       success: true,
       save: petSave
     }
+  })
+
+  ipcMain.handle('pet:get-tasks', () => {
+    return petSave.tasks
+  })
+
+  ipcMain.handle('pet:add-task', (_event, taskInput) => {
+    const title = String(taskInput?.title ?? '').trim()
+    const notes = String(taskInput?.notes ?? '').trim()
+
+    if (!title) {
+      return {
+        success: false,
+        reason: 'Task title is required.',
+        tasks: petSave.tasks
+      }
+    }
+
+    const task = {
+      id: crypto.randomUUID(),
+      title,
+      notes,
+      completed: false,
+      createdAt: Date.now()
+    }
+
+    petSave = {
+      ...petSave,
+      tasks: [task, ...(petSave.tasks ?? [])]
+    }
+
+    savePetSave()
+    broadcastTasks()
+
+    return {
+      success: true,
+      task,
+      tasks: petSave.tasks
+    }
+  })
+
+  ipcMain.handle('pet:update-task', (_event, updatedTask) => {
+    if (!updatedTask?.id) {
+      return {
+        success: false,
+        reason: 'Task id is required.',
+        tasks: petSave.tasks
+      }
+    }
+
+    petSave = {
+      ...petSave,
+      tasks: petSave.tasks.map((task) => {
+        if (task.id !== updatedTask.id) return task
+
+        return {
+          ...task,
+          ...updatedTask,
+          title: String(updatedTask.title ?? task.title).trim(),
+          notes: String(updatedTask.notes ?? task.notes ?? '').trim()
+        }
+      })
+    }
+
+    savePetSave()
+    broadcastTasks()
+
+    return {
+      success: true,
+      tasks: petSave.tasks
+    }
+  })
+
+  ipcMain.handle('pet:delete-task', (_event, taskId) => {
+    petSave = {
+      ...petSave,
+      tasks: petSave.tasks.filter((task) => task.id !== taskId)
+    }
+
+    savePetSave()
+    broadcastTasks()
+
+    return {
+      success: true,
+      tasks: petSave.tasks
+    }
+  })
+
+  ipcMain.on('tasks:close', () => {
+    if (!tasksWindow || tasksWindow.isDestroyed()) return
+    tasksWindow.close()
   })
 
   // Run npm run dev, open new terminal, npm run start

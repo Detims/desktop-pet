@@ -1,8 +1,11 @@
 import type {
   ActivePetWork,
+  AddTaskInput,
   PetSave,
+  PetTask,
   PetWorkOption,
   PurchaseResult,
+  TaskResult,
   WindowPosition
 } from './pet'
 
@@ -62,6 +65,26 @@ declare global {
       onPetSaveUpdated: (
         callback: (save: PetSave) => void
       ) => () => void
+
+      getTasks: () => Promise<PetTask[]>
+
+      addTask: (
+        taskInput: AddTaskInput
+      ) => Promise<TaskResult>
+
+      updateTask: (
+        task: PetTask
+      ) => Promise<TaskResult>
+
+      deleteTask: (
+        taskId: string
+      ) => Promise<TaskResult>
+
+      onTasksUpdated: (
+        callback: (tasks: PetTask[]) => void
+      ) => () => void
+
+      closeTasksWindow: () => void
     }
   }
 }
