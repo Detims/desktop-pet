@@ -4,7 +4,11 @@ const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
 
 const DEFAULT_PET_SAVE = {
   currency: 100,
-  level: 1
+  level: 1,
+  windows: {
+    shop: null,
+    work: null
+  }
 }
 
 let petSave = { ...DEFAULT_PET_SAVE }
@@ -28,7 +32,11 @@ const loadPetSave = () => {
 
     petSave = {
       ...DEFAULT_PET_SAVE,
-      ...parsedSave
+      ...parsedSave,
+      windows: {
+        ...DEFAULT_PET_SAVE.windows,
+        ...(parsedSave.windows ?? {})
+      }
     }
   } catch (error) {
     console.error('Failed to load pet save:', error)
@@ -55,6 +63,53 @@ const broadcastPetSave = () => {
     if (win && !win.isDestroyed()) {
       win.webContents.send('pet:save-updated', petSave)
     }
+  }
+}
+
+const getSavedWindowBounds = (windowName, fallbackBounds) => {
+  return petSave.windows?.[windowName] ?? fallbackBounds
+}
+
+const saveWindowBounds = (windowName, win) => {
+  if (!win || win.isDestroyed()) return
+
+  const bounds = win.getBounds()
+
+  petSave = {
+    ...petSave,
+    windows: {
+      ...(petSave.windows ?? {}),
+      [windowName]: bounds
+    }
+  }
+
+  savePetSave()
+}
+
+const ensureWindowBoundsAreVisible = (bounds) => {
+  if (bounds.x === undefined || bounds.y === undefined) {
+    return bounds
+  }
+
+  const matchingDisplay = screen.getAllDisplays().find((display) => {
+    const area = display.workArea
+
+    return (
+      bounds.x >= area.x &&
+      bounds.y >= area.y &&
+      bounds.x < area.x + area.width &&
+      bounds.y < area.y + area.height
+    )
+  })
+
+  if (matchingDisplay) {
+    return bounds
+  }
+
+  return {
+    ...bounds,
+    x: undefined,
+    y: undefined
   }
 }
 
@@ -103,9 +158,16 @@ const createWorkWindow = () => {
     return workWindow
   }
 
+  const bounds = ensureWindowBoundsAreVisible(
+    getSavedWindowBounds('work', {
+      width: 720,
+      height: 520
+    })
+  )
+
+
   workWindow = new BrowserWindow({
-    width: 720,
-    height: 520,
+    ...bounds,
     minWidth: 520,
     minHeight: 420,
     frame: false,
@@ -122,6 +184,10 @@ const createWorkWindow = () => {
   })
 
   workWindow.setMenuBarVisibility(false)
+
+  workWindow.on('close', () => {
+    saveWindowBounds('work', workWindow)
+  })
 
   workWindow.on('closed', () => {
     workWindow = null
@@ -153,9 +219,15 @@ const createShopWindow = () => {
     return shopWindow
   }
 
+  const bounds = ensureWindowBoundsAreVisible(
+    getSavedWindowBounds('shop', {
+      width: 720,
+      height: 520
+    })
+  )
+
   shopWindow = new BrowserWindow({
-    width: 720,
-    height: 520,
+    ...bounds,
     minWidth: 520,
     minHeight: 420,
     frame: false,
@@ -172,6 +244,10 @@ const createShopWindow = () => {
   })
 
   shopWindow.setMenuBarVisibility(false)
+
+  shopWindow.on('close', () => {
+    saveWindowBounds('shop', shopWindow)
+  })
 
   shopWindow.on('closed', () => {
     shopWindow = null
