@@ -120,6 +120,8 @@ const createShopWindow = () => {
 }
 
 const scheduleCrawlAfterIdle = () => {
+  if (activeWork) return
+
   if (crawlIdleTimer) {
     clearTimeout(crawlIdleTimer)
     crawlIdleTimer = null
@@ -135,6 +137,7 @@ const scheduleCrawlAfterIdle = () => {
 }
 
 const startPetCrawling = (win) => {
+  if (activeWork) return
   if (!win || win.isDestroyed()) return
   if (isCrawling) return
 
@@ -472,6 +475,11 @@ const createWindow = () => {
   ipcMain.on('pet:start-work', (_event, workOption) => {
     if (activeWork) return
 
+    stopPetCrawling({
+      byUser: false,
+      scheduleRestart: false
+    })
+
     const startedAt = Date.now()
     const endsAt = startedAt + workOption.durationSeconds * 1000
 
@@ -515,6 +523,7 @@ const createWindow = () => {
         }
 
         sendWorkUpdate()
+        scheduleCrawlAfterIdle()
       }
     }, 1000)
   })
@@ -527,6 +536,7 @@ const createWindow = () => {
 
     activeWork = null
     sendWorkUpdate()
+    scheduleCrawlAfterIdle()
   })
 
   ipcMain.handle('pet:get-active-work', () => {
