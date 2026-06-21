@@ -1,5 +1,74 @@
+const fs = require('node:fs');
 const path = require('node:path');
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
+
+const DEFAULT_PET_SAVE = {
+  currency: 100,
+  level: 1
+}
+
+let petSave = { ...DEFAULT_PET_SAVE }
+
+const getSavePath = () => {
+  return path.join(app.getPath('userData'), 'pet-save.json')
+}
+
+const loadPetSave = () => {
+  try {
+    const savePath = getSavePath()
+
+    if (!fs.existsSync(savePath)) {
+      petSave = { ...DEFAULT_PET_SAVE }
+      savePetSave()
+      return
+    }
+
+    const rawSave = fs.readFileSync(savePath, 'utf8')
+    const parsedSave = JSON.parse(rawSave)
+
+    petSave = {
+      ...DEFAULT_PET_SAVE,
+      ...parsedSave
+    }
+  } catch (error) {
+    console.error('Failed to load pet save:', error)
+    petSave = { ...DEFAULT_PET_SAVE }
+  }
+}
+
+const savePetSave = () => {
+  try {
+    fs.writeFileSync(
+      getSavePath(),
+      JSON.stringify(petSave, null, 2),
+      'utf8'
+    )
+  } catch (error) {
+    console.error('Failed to save pet data:', error)
+  }
+}
+
+const broadcastPetSave = () => {
+  const windows = [mainWindow, shopWindow, workWindow, statsWindow]
+
+  for (const win of windows) {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('pet:save-updated', petSave)
+    }
+  }
+}
+
+const updateCurrency = (amount) => {
+  petSave = {
+    ...petSave,
+    currency: Math.max(0, petSave.currency + amount)
+  }
+
+  savePetSave()
+  broadcastPetSave()
+
+  return petSave.currency
+}
 
 let mainWindow = null
 let statsWindow = null
@@ -474,6 +543,7 @@ const createWindow = () => {
 
   ipcMain.on('pet:start-work', (_event, workOption) => {
     if (activeWork) return
+    workWindow.close()
 
     stopPetCrawling({
       byUser: false,
@@ -514,6 +584,10 @@ const createWindow = () => {
         const completedWork = activeWork
         activeWork = null
 
+        if (completedWork) {
+          updateCurrency(completedWork.currencyReward)
+        }
+
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('pet:work-completed', completedWork)
         }
@@ -548,6 +622,35 @@ const createWindow = () => {
     workWindow.close()
   })
 
+  ipcMain.handle('pet:get-save', () => {
+    return petSave
+  })
+
+  ipcMain.handle('pet:purchase-item', (_event, item) => {
+    if (!item || typeof item.price !== 'number') {
+      return {
+        success: false,
+        reason: 'Invalid item.',
+        save: petSave
+      }
+    }
+
+    if (petSave.currency < item.price) {
+      return {
+        success: false,
+        reason: 'Not enough currency.',
+        save: petSave
+      }
+    }
+
+    updateCurrency(-item.price)
+
+    return {
+      success: true,
+      save: petSave
+    }
+  })
+
   // Run npm run dev, open new terminal, npm run start
   if (!app.isPackaged) {
     mainWindow.loadURL("http://127.0.0.1:5173");
@@ -559,6 +662,8 @@ const createWindow = () => {
 }
 
 app.whenReady().then(() => {
+  loadPetSave();
+
   createWindow();
 
   app.on('activate', () => {

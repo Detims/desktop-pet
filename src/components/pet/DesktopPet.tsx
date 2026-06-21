@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ActivePetWork } from '../../types/pet'
 
 type PetState =
   | 'idle'
@@ -7,15 +8,6 @@ type PetState =
   | 'angry'
   | 'sleepy'
   | 'alert'
-
-type ActiveWork = {
-  id: string
-  name: string
-  currencyReward: number
-  startedAt: number
-  endsAt: number
-  remainingSeconds: number
-} | null
 
 const HOLD_TO_DRAG_MS = 100
 const IDLE_BEFORE_CRAWL_MS = 5_000
@@ -90,7 +82,7 @@ export function DesktopPet() {
   const isStatsMenuVisibleRef = useRef(false)
   const isStatsMenuWaitingRef = useRef(false)
 
-  const [activeWork, setActiveWork] = useState<ActiveWork>(null)
+  const [activeWork, setActiveWork] = useState<ActivePetWork>(null)
 
   useEffect(() => {
     window.desktopPet.getActiveWork().then(setActiveWork)
@@ -130,6 +122,7 @@ export function DesktopPet() {
 
     isHoveringPetRef.current = true
     isStatsMenuVisibleRef.current = false
+    isStatsMenuWaitingRef.current = true
 
     latestStatsPositionRef.current = {
       x: event.screenX,
@@ -354,7 +347,6 @@ export function DesktopPet() {
     <div
       className="pet-window"
       onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
       onContextMenu={handleContextMenu}
     >
       {speechText && (

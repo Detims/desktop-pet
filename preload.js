@@ -111,5 +111,25 @@ contextBridge.exposeInMainWorld('desktopPet', {
 
     closeWorkWindow: () => {
         ipcRenderer.send('work:close')
+    },
+
+    getPetSave: () => {
+        return ipcRenderer.invoke('pet:get-save')
+    },
+
+    purchaseItem: (item) => {
+        return ipcRenderer.invoke('pet:purchase-item', item)
+    },
+
+    onPetSaveUpdated: (callback) => {
+        const listener = (_event, save) => {
+            callback(save)
+        }
+
+        ipcRenderer.on('pet:save-updated', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:save-updated', listener)
+        }
     }
 });

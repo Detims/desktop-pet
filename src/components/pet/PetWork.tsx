@@ -20,8 +20,19 @@ function formatTime(seconds: number) {
 }
 
 export function PetWork() {
+  const [coins, setCoins] = useState(0)
   const [activeWork, setActiveWork] = useState<ActiveWork>(null)
   const [message, setMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.desktopPet.getPetSave().then((save) => {
+      setCoins(save.currency)
+    })
+
+    return window.desktopPet.onPetSaveUpdated((save) => {
+      setCoins(save.currency)
+    })
+  }, [])
 
   useEffect(() => {
     window.desktopPet.getActiveWork().then(setActiveWork)
@@ -68,7 +79,7 @@ export function PetWork() {
 
           <div className="coin-display">
             <span className="coin-icon">●</span>
-            <span>100</span>
+            <span>{coins}</span>
           </div>
         </header>
 

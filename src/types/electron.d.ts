@@ -1,3 +1,11 @@
+import type {
+  ActivePetWork,
+  PetSave,
+  PetWorkOption,
+  PurchaseResult,
+  WindowPosition
+} from './pet'
+
 export {}
 
 
@@ -17,8 +25,6 @@ declare global {
       startCrawling: () => void
 
       stopCrawling: () => void
-
-      onCrawlingStopped: () => void
 
       onContextMenuClosed: (callback: () => void) => () => void 
 
@@ -43,6 +49,19 @@ declare global {
       onWorkCompleted: (callback: (completedWork: NonNullable<ActivePetWork>) => void) => () => void
       
       closeWorkWindow: () => void
+
+      getPetSave: () => Promise<PetSave>
+
+      purchaseItem: (
+        item: {
+          id: string
+          price: number
+        }
+      ) => Promise<PurchaseResult>
+
+      onPetSaveUpdated: (
+        callback: (save: PetSave) => void
+      ) => () => void
     }
   }
 }

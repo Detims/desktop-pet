@@ -1,13 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { PET_SHOP_ITEMS } from './PetShopItems'
 
-const STARTING_COINS = 100
-
 export function PetShop() {
-    const [coins, setCoins] = useState(STARTING_COINS)
+    const [coins, setCoins] = useState(0)
+    const [shopMessage, setShopMessage] = useState<string | null>(null)
     const [selectedCategory, setSelectedCategory] = useState<string>('All')
     const [ownedItemIds, setOwnedItemIds] = useState<string[]>([])
     const [searchText, setSearchText] = useState('')
+
+    useEffect(() => {
+        window.desktopPet.getPetSave().then((save) => {
+            setCoins(save.currency)
+        })
+
+        return window.desktopPet.onPetSaveUpdated((save) => {
+            setCoins(save.currency)
+        })
+    }, [])
 
     const categories = useMemo(() => {
         return ['All', ...Array.from(new Set(PET_SHOP_ITEMS.map((item) => item.category)))]
@@ -31,15 +40,25 @@ export function PetShop() {
         })
     }, [selectedCategory, searchText])
 
-    const buyItem = (itemId: string) => {
+    const buyItem = async (itemId: string) => {
         const item = PET_SHOP_ITEMS.find((shopItem) => shopItem.id === itemId)
 
         if (!item) return
         if (ownedItemIds.includes(item.id)) return
-        if (coins < item.price) return
+        
+        const result = await window.desktopPet.purchaseItem({
+            id: item.id,
+            price: item.price
+        })
 
-        setCoins((currentCoins) => currentCoins - item.price)
+        if (!result.success) {
+            setShopMessage(result.reason ?? 'Purchase failed.')
+            return
+        }
+
+        setCoins(result.save.currency)
         setOwnedItemIds((currentItems) => [...currentItems, item.id])
+        setShopMessage(`Purchased ${item.name}!`)
     }
 
     return (
@@ -60,6 +79,12 @@ export function PetShop() {
                 </button>
                 </div>
             </div>
+
+            {shopMessage && (
+                <div className="shop-message">
+                    {shopMessage}
+                </div>
+            )}
 
             <section className="shop-content">
                 <header className="shop-header">
