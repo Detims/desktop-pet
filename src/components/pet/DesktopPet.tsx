@@ -11,7 +11,7 @@ type PetState =
 
 const HOLD_TO_DRAG_MS = 100
 const IDLE_BEFORE_CRAWL_MS = 5_000
-const STATS_HOVER_DELAY_MS = 600
+const STATS_HOVER_DELAY_MS = 800
 const TALK_INTERVAL = 30_000
 
 const petAnimations: Record<PetState, string> = {

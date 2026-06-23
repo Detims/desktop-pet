@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { PetTask } from '../../types/pet'
+import { GoogleTestPanel } from './GoogleTestPanel'
 
 export function PetTasks() {
   const [tasks, setTasks] = useState<PetTask[]>([])
@@ -90,6 +91,8 @@ export function PetTasks() {
             <span>Compact view</span>
           </label>
         </header>
+
+        <GoogleTestPanel />
 
         {message && (
           <div className="tasks-message">

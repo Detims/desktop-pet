@@ -52,3 +52,59 @@ export type TaskResult = {
   task?: PetTask
   tasks: PetTask[]
 }
+
+export type GoogleStatus = {
+  connected: boolean
+}
+
+export type GoogleConnectionResult = {
+  success: boolean
+  connected: boolean
+  reason?: string
+}
+
+export type GoogleEmail = {
+  id?: string | null
+  threadId?: string | null
+  from: string
+  subject: string
+  date: string
+  snippet: string
+}
+
+export type GoogleCalendarEvent = {
+  id?: string | null
+  title: string
+  description: string
+  location: string
+  start: string
+  end: string
+}
+
+export type GoogleTask = {
+  id?: string | null
+  listId: string
+  listTitle: string
+  title: string
+  notes: string
+  due: string
+  status: string
+}
+
+export type GoogleEmailsResult = {
+  success: boolean
+  emails: GoogleEmail[]
+  reason?: string
+}
+
+export type GoogleCalendarEventsResult = {
+  success: boolean
+  events: GoogleCalendarEvent[]
+  reason?: string
+}
+
+export type GoogleTasksResult = {
+  success: boolean
+  tasks: GoogleTask[]
+  reason?: string
+}

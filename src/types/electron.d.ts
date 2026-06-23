@@ -1,6 +1,11 @@
 import type {
   ActivePetWork,
   AddTaskInput,
+  GoogleCalendarEventsResult,
+  GoogleConnectionResult,
+  GoogleEmailsResult,
+  GoogleStatus,
+  GoogleTasksResult,
   PetSave,
   PetTask,
   PetWorkOption,
@@ -85,6 +90,18 @@ declare global {
       ) => () => void
 
       closeTasksWindow: () => void
+
+      getGoogleStatus: () => Promise<GoogleStatus>
+
+      connectGoogle: () => Promise<GoogleConnectionResult>
+
+      disconnectGoogle: () => Promise<GoogleConnectionResult>
+
+      getRecentEmails: () => Promise<GoogleEmailsResult>
+
+      getCalendarEvents: () => Promise<GoogleCalendarEventsResult>
+
+      getGoogleTasks: () => Promise<GoogleTasksResult>
     }
   }
 }

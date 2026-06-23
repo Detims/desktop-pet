@@ -1,7 +1,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const crytpo = require('node:crypto')
+const crypto = require('node:crypto')
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
+const {
+  authorizeGoogle,
+  disconnectGoogle,
+  getGoogleConnectionStatus,
+  getRecentEmails,
+  getUpcomingCalendarEvents,
+  getGoogleTasks
+} = require('./src/main/google/googleClient')
 
 const DEFAULT_PET_SAVE = {
   currency: 100,
@@ -60,7 +68,7 @@ const savePetSave = () => {
 }
 
 const broadcastPetSave = () => {
-  const windows = [mainWindow, shopWindow, workWindow, statsWindow]
+  const windows = [mainWindow, shopWindow, workWindow, statsWindow, tasksWindow]
 
   for (const win of windows) {
     if (win && !win.isDestroyed()) {
@@ -698,7 +706,10 @@ const createWindow = () => {
 
   ipcMain.on('pet:start-work', (_event, workOption) => {
     if (activeWork) return
-    workWindow.close()
+
+    if (workWindow && !workWindow.isDestroyed()) {
+      workWindow.close()
+    }
 
     stopPetCrawling({
       byUser: false,
@@ -895,6 +906,105 @@ const createWindow = () => {
   ipcMain.on('tasks:close', () => {
     if (!tasksWindow || tasksWindow.isDestroyed()) return
     tasksWindow.close()
+  })
+
+  ipcMain.handle('google:get-status', () => {
+    return getGoogleConnectionStatus()
+  })
+
+  ipcMain.handle('google:connect', async () => {
+    try {
+      await authorizeGoogle()
+
+      return {
+        success: true,
+        connected: true
+      }
+    } catch (error) {
+      console.error('Google connect failed:', error)
+
+      return {
+        success: false,
+        connected: false,
+        reason: error instanceof Error ? error.message : 'Google connection failed.'
+      }
+    }
+  })
+
+  ipcMain.handle('google:disconnect', () => {
+    try {
+      disconnectGoogle()
+
+      return {
+        success: true,
+        connected: false
+      }
+    } catch (error) {
+      console.error('Google disconnect failed:', error)
+
+      return {
+        success: false,
+        connected: getGoogleConnectionStatus().connected,
+        reason: error instanceof Error ? error.message : 'Google disconnect failed.'
+      }
+    }
+  })
+
+  ipcMain.handle('google:get-recent-emails', async () => {
+    try {
+      const emails = await getRecentEmails()
+
+      return {
+        success: true,
+        emails
+      }
+    } catch (error) {
+      console.error('Failed to fetch recent emails:', error)
+
+      return {
+        success: false,
+        emails: [],
+        reason: error instanceof Error ? error.message : 'Failed to fetch recent emails.'
+      }
+    }
+  })
+
+  ipcMain.handle('google:get-calendar-events', async () => {
+    try {
+      const events = await getUpcomingCalendarEvents()
+
+      return {
+        success: true,
+        events
+      }
+    } catch (error) {
+      console.error('Failed to fetch calendar events:', error)
+
+      return {
+        success: false,
+        events: [],
+        reason: error instanceof Error ? error.message : 'Failed to fetch calendar events.'
+      }
+    }
+  })
+
+  ipcMain.handle('google:get-tasks', async () => {
+    try {
+      const tasks = await getGoogleTasks()
+
+      return {
+        success: true,
+        tasks
+      }
+    } catch (error) {
+      console.error('Failed to fetch Google tasks:', error)
+
+      return {
+        success: false,
+        tasks: [],
+        reason: error instanceof Error ? error.message : 'Failed to fetch Google tasks.'
+      }
+    }
   })
 
   // Run npm run dev, open new terminal, npm run start

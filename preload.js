@@ -163,5 +163,29 @@ contextBridge.exposeInMainWorld('desktopPet', {
 
     closeTasksWindow: () => {
         ipcRenderer.send('tasks:close')
-    }
+    },
+
+    getGoogleStatus: () => {
+        return ipcRenderer.invoke('google:get-status')
+    },
+
+    connectGoogle: () => {
+        return ipcRenderer.invoke('google:connect')
+    },
+
+    disconnectGoogle: () => {
+        return ipcRenderer.invoke('google:disconnect')
+    },
+
+    getRecentEmails: () => {
+        return ipcRenderer.invoke('google:get-recent-emails')
+    },
+
+    getCalendarEvents: () => {
+        return ipcRenderer.invoke('google:get-calendar-events')
+    },
+
+    getGoogleTasks: () => {
+        return ipcRenderer.invoke('google:get-tasks')
+    },
 });
