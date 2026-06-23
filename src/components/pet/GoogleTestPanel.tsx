@@ -49,6 +49,23 @@ export function GoogleTestPanel() {
     setIsLoading(false)
   }
 
+  const disconnectGoogle = async () => {
+    setIsLoading(true)
+    setMessage(null)
+
+    const result = await window.desktopPet.disconnectGoogle()
+
+    setIsConnected(result.connected)
+
+    if (result.success) {
+      setMessage('Google disconnected.')
+    } else {
+      setMessage(result.reason ?? 'Could not disconnect Google.')
+    }
+
+    setIsLoading(false)
+  }
+
   const syncGoogleData = async () => {
     setIsLoading(true)
     setMessage(null)
@@ -86,9 +103,15 @@ export function GoogleTestPanel() {
               Connect Google
             </button>
           ) : (
-              <button type="button" onClick={syncGoogleData} disabled={isLoading}>
-                Sync
-              </button>
+              <>
+                <button type="button" onClick={syncGoogleData} disabled={isLoading}>
+                  Sync
+                </button>
+
+                <button type="button" onClick={disconnectGoogle} disabled={isLoading}>
+                  Disconnect
+                </button>
+            </>
           )}
         </div>
       </div>
