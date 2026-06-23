@@ -6,6 +6,8 @@ import type {
   GoogleEmailsResult,
   GoogleStatus,
   GoogleTasksResult,
+  GoogleSyncData,
+  GoogleSyncResult,
   PetSave,
   PetTask,
   PetWorkOption,
@@ -102,6 +104,14 @@ declare global {
       getCalendarEvents: () => Promise<GoogleCalendarEventsResult>
 
       getGoogleTasks: () => Promise<GoogleTasksResult>
+
+      getLatestGoogleSync: () => Promise<GoogleSyncData>
+
+      syncGoogleData: () => Promise<GoogleSyncResult>
+
+      onGoogleSyncUpdated: (
+        callback: (googleSync: GoogleSyncData) => void
+      ) => () => void
     }
   }
 }

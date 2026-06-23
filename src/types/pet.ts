@@ -25,6 +25,7 @@ export type PetSave = {
   currency: number
   level: number
   tasks: PetTask[]
+  google: GoogleSyncData
 }
 
 export type PurchaseResult = {
@@ -106,5 +107,18 @@ export type GoogleCalendarEventsResult = {
 export type GoogleTasksResult = {
   success: boolean
   tasks: GoogleTask[]
+  reason?: string
+}
+
+export type GoogleSyncData = {
+  lastSyncedAt: number | null
+  emails: GoogleEmail[]
+  calendarEvents: GoogleCalendarEvent[]
+  tasks: GoogleTask[]
+}
+
+export type GoogleSyncResult = {
+  success: boolean
+  google: GoogleSyncData
   reason?: string
 }

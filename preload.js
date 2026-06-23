@@ -188,4 +188,24 @@ contextBridge.exposeInMainWorld('desktopPet', {
     getGoogleTasks: () => {
         return ipcRenderer.invoke('google:get-tasks')
     },
+
+    getLatestGoogleSync: () => {
+        return ipcRenderer.invoke('google:get-latest-sync')
+    },
+
+    syncGoogleData: () => {
+        return ipcRenderer.invoke('google:sync-all')
+    },
+
+    onGoogleSyncUpdated: (callback) => {
+        const listener = (_event, googleSync) => {
+            callback(googleSync)
+        }
+
+        ipcRenderer.on('google:sync-updated', listener)
+
+        return () => {
+            ipcRenderer.removeListener('google:sync-updated', listener)
+        }
+    }
 });

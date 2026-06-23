@@ -10,12 +10,31 @@ export function GoogleTestPanel() {
   const [emails, setEmails] = useState<GoogleEmail[]>([])
   const [events, setEvents] = useState<GoogleCalendarEvent[]>([])
   const [googleTasks, setGoogleTasks] = useState<GoogleTask[]>([])
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  const applyGoogleSync = (googleSync: {
+    lastSyncedAt: number | null
+    emails: GoogleEmail[]
+    calendarEvents: GoogleCalendarEvent[]
+    tasks: GoogleTask[]
+  }) => {
+    setLastSyncedAt(googleSync.lastSyncedAt)
+    setEmails(googleSync.emails)
+    setEvents(googleSync.calendarEvents)
+    setGoogleTasks(googleSync.tasks)
+  }
 
   useEffect(() => {
     window.desktopPet.getGoogleStatus().then((status) => {
       setIsConnected(status.connected)
+    })
+
+    window.desktopPet.getLatestGoogleSync().then(applyGoogleSync)
+
+    return window.desktopPet.onGoogleSyncUpdated((googleSync) => {
+      applyGoogleSync(googleSync)
     })
   }, [])
 
@@ -30,46 +49,20 @@ export function GoogleTestPanel() {
     setIsLoading(false)
   }
 
-  const disconnectGoogle = async () => {
-    setIsLoading(true)
-    setMessage(null)
-
-    const result = await window.desktopPet.disconnectGoogle()
-
-    setIsConnected(result.connected)
-    setMessage(result.success ? 'Google disconnected.' : result.reason ?? 'Could not disconnect Google.')
-    setIsLoading(false)
-  }
-
   const syncGoogleData = async () => {
     setIsLoading(true)
     setMessage(null)
 
-    const [emailResult, calendarResult, tasksResult] = await Promise.all([
-      window.desktopPet.getRecentEmails(),
-      window.desktopPet.getCalendarEvents(),
-      window.desktopPet.getGoogleTasks()
-    ])
+    const result = await window.desktopPet.syncGoogleData()
 
-    if (emailResult.success) {
-      setEmails(emailResult.emails)
+    if (result.success) {
+      applyGoogleSync(result.google)
+      setMessage('Google data synced.')
+    } else {
+      applyGoogleSync(result.google)
+      setMessage(result.reason ?? 'Could not sync Google data.')
     }
 
-    if (calendarResult.success) {
-      setEvents(calendarResult.events)
-    }
-
-    if (tasksResult.success) {
-      setGoogleTasks(tasksResult.tasks)
-    }
-
-    const errors = [
-      emailResult.reason,
-      calendarResult.reason,
-      tasksResult.reason
-    ].filter(Boolean)
-
-    setMessage(errors.length > 0 ? errors.join(' ') : 'Google data synced.')
     setIsLoading(false)
   }
 
@@ -79,6 +72,12 @@ export function GoogleTestPanel() {
         <div>
           <h2>Google API Test</h2>
           <p>{isConnected ? 'Connected' : 'Not connected'}</p>
+
+          {lastSyncedAt && (
+            <p>
+              Last synced: {new Date(lastSyncedAt).toLocaleString()}
+            </p>
+          )}
         </div>
 
         <div className="google-panel-actions">
@@ -87,15 +86,9 @@ export function GoogleTestPanel() {
               Connect Google
             </button>
           ) : (
-            <>
               <button type="button" onClick={syncGoogleData} disabled={isLoading}>
                 Sync
               </button>
-
-              <button type="button" onClick={disconnectGoogle} disabled={isLoading}>
-                Disconnect
-              </button>
-            </>
           )}
         </div>
       </div>

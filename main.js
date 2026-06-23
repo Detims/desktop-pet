@@ -15,9 +15,16 @@ const DEFAULT_PET_SAVE = {
   currency: 100,
   level: 1,
   tasks: [],
+  google: {
+    lastSyncedAt: null,
+    emails: [],
+    calendarEvents: [],
+    tasks: []
+  },
   windows: {
     shop: null,
-    work: null
+    work: null,
+    tasks: null
   }
 }
 
@@ -44,6 +51,10 @@ const loadPetSave = () => {
       ...DEFAULT_PET_SAVE,
       ...parsedSave,
       tasks: Array.isArray(parsedSave.tasks) ? parsedSave.tasks : [],
+      google: {
+        ...DEFAULT_PET_SAVE.google,
+        ...(parsedSave.google ?? {})
+      },
       windows: {
         ...DEFAULT_PET_SAVE.windows,
         ...(parsedSave.windows ?? {})
@@ -75,6 +86,33 @@ const broadcastPetSave = () => {
       win.webContents.send('pet:save-updated', petSave)
     }
   }
+}
+
+const broadcastGoogleSync = () => {
+  const windows = [mainWindow, tasksWindow]
+
+  for (const win of windows) {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('google:sync-updated', petSave.google)
+    }
+  }
+}
+
+const saveGoogleSyncResult = ({ emails, calendarEvents, tasks }) => {
+  petSave = {
+    ...petSave,
+    google: {
+      lastSyncedAt: Date.now(),
+      emails,
+      calendarEvents,
+      tasks
+    }
+  }
+
+  savePetSave()
+  broadcastGoogleSync()
+
+  return petSave.google
 }
 
 const getSavedWindowBounds = (windowName, fallbackBounds) => {
@@ -1003,6 +1041,39 @@ const createWindow = () => {
         success: false,
         tasks: [],
         reason: error instanceof Error ? error.message : 'Failed to fetch Google tasks.'
+      }
+    }
+  })
+
+  ipcMain.handle('google:get-latest-sync', () => {
+    return petSave.google
+  })
+
+  ipcMain.handle('google:sync-all', async () => {
+    try {
+      const [emails, calendarEvents, tasks] = await Promise.all([
+        getRecentEmails(),
+        getUpcomingCalendarEvents(),
+        getGoogleTasks()
+      ])
+
+      const googleSync = saveGoogleSyncResult({
+        emails,
+        calendarEvents,
+        tasks
+      })
+
+      return {
+        success: true,
+        google: googleSync
+      }
+    } catch (error) {
+      console.error('Failed to sync Google data:', error)
+
+      return {
+        success: false,
+        google: petSave.google,
+        reason: error instanceof Error ? error.message : 'Failed to sync Google data.'
       }
     }
   })
