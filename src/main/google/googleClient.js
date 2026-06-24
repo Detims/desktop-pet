@@ -141,12 +141,20 @@ const authorizeGoogle = async () => {
   return oauthClient
 }
 
-const disconnectGoogle = () => {
-  const tokenPath = getGoogleTokenPath()
+const disconnectGoogle = async () => {
+  setIsLoading(true)
+  setMessage(null)
 
-  if (fs.existsSync(tokenPath)) {
-    fs.unlinkSync(tokenPath)
+  const result = await window.desktopPet.disconnectGoogle()
+
+  setIsConnected(result.connected)
+
+  if (result.google) {
+    applyGoogleSync(result.google)
   }
+
+  setMessage(result.success ? 'Google disconnected.' : result.reason ?? 'Could not disconnect Google.')
+  setIsLoading(false)
 }
 
 const getGoogleConnectionStatus = () => {

@@ -973,6 +973,16 @@ const createWindow = () => {
     try {
       disconnectGoogle()
 
+      petSave = {
+        ...petSave,
+        google: {
+          ...DEFAULT_PET_SAVE.google
+        }
+      }
+
+      savePetSave()
+      broadcastGoogleSync()
+
       return {
         success: true,
         connected: false
