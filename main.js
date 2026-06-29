@@ -1,7 +1,18 @@
-const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto')
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
+const {
+  loadPetSave,
+  getPetSave,
+  updateCurrency,
+  addTask,
+  updateTask,
+  deleteTask,
+  setGoogleSync,
+  clearGoogleSync,
+  getWindowBounds,
+  setWindowBounds
+} = require('./src/main/state/petSaveStore')
 const {
   authorizeGoogle,
   disconnectGoogle,
@@ -11,79 +22,12 @@ const {
   getGoogleTasks
 } = require('./src/main/google/googleClient')
 
-const DEFAULT_PET_SAVE = {
-  currency: 100,
-  level: 1,
-  tasks: [],
-  google: {
-    lastSyncedAt: null,
-    emails: [],
-    calendarEvents: [],
-    tasks: []
-  },
-  windows: {
-    shop: null,
-    work: null,
-    tasks: null
-  }
-}
-
-let petSave = { ...DEFAULT_PET_SAVE }
-
-const getSavePath = () => {
-  return path.join(app.getPath('userData'), 'pet-save.json')
-}
-
-const loadPetSave = () => {
-  try {
-    const savePath = getSavePath()
-
-    if (!fs.existsSync(savePath)) {
-      petSave = { ...DEFAULT_PET_SAVE }
-      savePetSave()
-      return
-    }
-
-    const rawSave = fs.readFileSync(savePath, 'utf8')
-    const parsedSave = JSON.parse(rawSave)
-
-    petSave = {
-      ...DEFAULT_PET_SAVE,
-      ...parsedSave,
-      tasks: Array.isArray(parsedSave.tasks) ? parsedSave.tasks : [],
-      google: {
-        ...DEFAULT_PET_SAVE.google,
-        ...(parsedSave.google ?? {})
-      },
-      windows: {
-        ...DEFAULT_PET_SAVE.windows,
-        ...(parsedSave.windows ?? {})
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load pet save:', error)
-    petSave = { ...DEFAULT_PET_SAVE }
-  }
-}
-
-const savePetSave = () => {
-  try {
-    fs.writeFileSync(
-      getSavePath(),
-      JSON.stringify(petSave, null, 2),
-      'utf8'
-    )
-  } catch (error) {
-    console.error('Failed to save pet data:', error)
-  }
-}
-
 const broadcastPetSave = () => {
   const windows = [mainWindow, shopWindow, workWindow, statsWindow, tasksWindow]
 
   for (const win of windows) {
     if (win && !win.isDestroyed()) {
-      win.webContents.send('pet:save-updated', petSave)
+      win.webContents.send('pet:save-updated', getPetSave())
     }
   }
 }
@@ -93,46 +37,9 @@ const broadcastGoogleSync = () => {
 
   for (const win of windows) {
     if (win && !win.isDestroyed()) {
-      win.webContents.send('google:sync-updated', petSave.google)
+      win.webContents.send('google:sync-updated', getPetSave().google)
     }
   }
-}
-
-const saveGoogleSyncResult = ({ emails, calendarEvents, tasks }) => {
-  petSave = {
-    ...petSave,
-    google: {
-      lastSyncedAt: Date.now(),
-      emails,
-      calendarEvents,
-      tasks
-    }
-  }
-
-  savePetSave()
-  broadcastGoogleSync()
-
-  return petSave.google
-}
-
-const getSavedWindowBounds = (windowName, fallbackBounds) => {
-  return petSave.windows?.[windowName] ?? fallbackBounds
-}
-
-const saveWindowBounds = (windowName, win) => {
-  if (!win || win.isDestroyed()) return
-
-  const bounds = win.getBounds()
-
-  petSave = {
-    ...petSave,
-    windows: {
-      ...(petSave.windows ?? {}),
-      [windowName]: bounds
-    }
-  }
-
-  savePetSave()
 }
 
 const ensureWindowBoundsAreVisible = (bounds) => {
@@ -195,7 +102,7 @@ const broadcastTasks = () => {
 
   for (const win of windows) {
     if (win && !win.isDestroyed()) {
-      win.webContents.send('pet:tasks-updated', petSave.tasks)
+      win.webContents.send('pet:tasks-updated', getPetSave().tasks)
     }
   }
 }
@@ -207,7 +114,7 @@ const createTasksWindow = () => {
   }
 
   const bounds = ensureWindowBoundsAreVisible(
-    getSavedWindowBounds('tasks', {
+    getWindowBounds('tasks', {
       width: 720,
       height: 520
     })
@@ -233,7 +140,8 @@ const createTasksWindow = () => {
   tasksWindow.setMenuBarVisibility(false)
 
   tasksWindow.on('close', () => {
-    saveWindowBounds('tasks', tasksWindow)
+    if (!tasksWindow || tasksWindow.isDestroyed()) return
+    setWindowBounds('tasks', tasksWindow.getBounds())
   })
 
   tasksWindow.on('closed', () => {
@@ -251,18 +159,6 @@ const createTasksWindow = () => {
   return tasksWindow
 }
 
-const updateCurrency = (amount) => {
-  petSave = {
-    ...petSave,
-    currency: Math.max(0, petSave.currency + amount)
-  }
-
-  savePetSave()
-  broadcastPetSave()
-
-  return petSave.currency
-}
-
 const createWorkWindow = () => {
   if (workWindow && !workWindow.isDestroyed()) {
     workWindow.focus()
@@ -270,7 +166,7 @@ const createWorkWindow = () => {
   }
 
   const bounds = ensureWindowBoundsAreVisible(
-    getSavedWindowBounds('work', {
+    getWindowBounds('work', {
       width: 720,
       height: 520
     })
@@ -297,7 +193,8 @@ const createWorkWindow = () => {
   workWindow.setMenuBarVisibility(false)
 
   workWindow.on('close', () => {
-    saveWindowBounds('work', workWindow)
+    if (!workWindow || workWindow.isDestroyed()) return
+    setWindowBounds('work', workWindow.getBounds())
   })
 
   workWindow.on('closed', () => {
@@ -331,7 +228,7 @@ const createShopWindow = () => {
   }
 
   const bounds = ensureWindowBoundsAreVisible(
-    getSavedWindowBounds('shop', {
+    getWindowBounds('shop', {
       width: 720,
       height: 520
     })
@@ -357,7 +254,8 @@ const createShopWindow = () => {
   shopWindow.setMenuBarVisibility(false)
 
   shopWindow.on('close', () => {
-    saveWindowBounds('shop', shopWindow)
+    if (!shopWindow || shopWindow.isDestroyed()) return
+    setWindowBounds('shop', shopWindow.getBounds())
   })
 
   shopWindow.on('closed', () => {
@@ -827,36 +725,39 @@ const createWindow = () => {
   })
 
   ipcMain.handle('pet:get-save', () => {
-    return petSave
+    return getPetSave()
   })
 
   ipcMain.handle('pet:purchase-item', (_event, item) => {
+    const save = getPetSave()
+    
     if (!item || typeof item.price !== 'number') {
       return {
         success: false,
         reason: 'Invalid item.',
-        save: petSave
+        save
       }
     }
 
-    if (petSave.currency < item.price) {
+    if (save.currency < item.price) {
       return {
         success: false,
         reason: 'Not enough currency.',
-        save: petSave
+        save
       }
     }
 
-    updateCurrency(-item.price)
+    const nextSave = updateCurrency(-item.price)
+    broadcastPetSave()
 
     return {
       success: true,
-      save: petSave
+      save: nextSave
     }
   })
 
   ipcMain.handle('pet:get-tasks', () => {
-    return petSave.tasks
+    return getPetSave().tasks
   })
 
   ipcMain.handle('pet:add-task', (_event, taskInput) => {
@@ -867,7 +768,7 @@ const createWindow = () => {
       return {
         success: false,
         reason: 'Task title is required.',
-        tasks: petSave.tasks
+        tasks: getPetSave().tasks
       }
     }
 
@@ -879,18 +780,13 @@ const createWindow = () => {
       createdAt: Date.now()
     }
 
-    petSave = {
-      ...petSave,
-      tasks: [task, ...(petSave.tasks ?? [])]
-    }
-
-    savePetSave()
+    const tasks = addTask(task)
     broadcastTasks()
 
     return {
       success: true,
       task,
-      tasks: petSave.tasks
+      tasks
     }
   })
 
@@ -899,45 +795,26 @@ const createWindow = () => {
       return {
         success: false,
         reason: 'Task id is required.',
-        tasks: petSave.tasks
+        tasks: getPetSave().tasks
       }
     }
 
-    petSave = {
-      ...petSave,
-      tasks: petSave.tasks.map((task) => {
-        if (task.id !== updatedTask.id) return task
-
-        return {
-          ...task,
-          ...updatedTask,
-          title: String(updatedTask.title ?? task.title).trim(),
-          notes: String(updatedTask.notes ?? task.notes ?? '').trim()
-        }
-      })
-    }
-
-    savePetSave()
+    const tasks = updateTask(updatedTask)
     broadcastTasks()
 
     return {
       success: true,
-      tasks: petSave.tasks
+      tasks
     }
   })
 
   ipcMain.handle('pet:delete-task', (_event, taskId) => {
-    petSave = {
-      ...petSave,
-      tasks: petSave.tasks.filter((task) => task.id !== taskId)
-    }
-
-    savePetSave()
+    const tasks = deleteTask(taskId)
     broadcastTasks()
 
     return {
       success: true,
-      tasks: petSave.tasks
+      tasks
     }
   })
 
@@ -973,19 +850,13 @@ const createWindow = () => {
     try {
       disconnectGoogle()
 
-      petSave = {
-        ...petSave,
-        google: {
-          ...DEFAULT_PET_SAVE.google
-        }
-      }
-
-      savePetSave()
+      const google = clearGoogleSync()
       broadcastGoogleSync()
 
       return {
         success: true,
-        connected: false
+        connected: false,
+        google
       }
     } catch (error) {
       console.error('Google disconnect failed:', error)
@@ -993,6 +864,7 @@ const createWindow = () => {
       return {
         success: false,
         connected: getGoogleConnectionStatus().connected,
+        google: getPetSave().google,
         reason: error instanceof Error ? error.message : 'Google disconnect failed.'
       }
     }
@@ -1056,7 +928,7 @@ const createWindow = () => {
   })
 
   ipcMain.handle('google:get-latest-sync', () => {
-    return petSave.google
+    return getPetSave().google
   })
 
   ipcMain.handle('google:sync-all', async () => {
@@ -1067,11 +939,13 @@ const createWindow = () => {
         getGoogleTasks()
       ])
 
-      const googleSync = saveGoogleSyncResult({
+      const googleSync = setGoogleSync({
         emails,
         calendarEvents,
         tasks
       })
+
+      broadcastGoogleSync()
 
       return {
         success: true,
@@ -1082,7 +956,7 @@ const createWindow = () => {
 
       return {
         success: false,
-        google: petSave.google,
+        google: getPetSave().google,
         reason: error instanceof Error ? error.message : 'Failed to sync Google data.'
       }
     }
