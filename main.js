@@ -2,6 +2,9 @@ const path = require('node:path');
 const crypto = require('node:crypto')
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
 const {
+  ensureWindowBoundsAreVisible
+} = require('./src/main/windows/windowBounds')
+const {
   loadPetSave,
   getPetSave,
   updateCurrency,
@@ -39,33 +42,6 @@ const broadcastGoogleSync = () => {
     if (win && !win.isDestroyed()) {
       win.webContents.send('google:sync-updated', getPetSave().google)
     }
-  }
-}
-
-const ensureWindowBoundsAreVisible = (bounds) => {
-  if (bounds.x === undefined || bounds.y === undefined) {
-    return bounds
-  }
-
-  const matchingDisplay = screen.getAllDisplays().find((display) => {
-    const area = display.workArea
-
-    return (
-      bounds.x >= area.x &&
-      bounds.y >= area.y &&
-      bounds.x < area.x + area.width &&
-      bounds.y < area.y + area.height
-    )
-  })
-
-  if (matchingDisplay) {
-    return bounds
-  }
-
-  return {
-    ...bounds,
-    x: undefined,
-    y: undefined
   }
 }
 
