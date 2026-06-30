@@ -1,9 +1,8 @@
 const path = require('node:path');
 const crypto = require('node:crypto')
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
-const {
-  ensureWindowBoundsAreVisible
-} = require('./src/main/windows/windowBounds')
+const { ensureWindowBoundsAreVisible } = require('./src/main/windows/windowBounds')
+const { createUtilityWindow } = require('./src/main/windows/createUtilityWindow')
 const {
   loadPetSave,
   getPetSave,
@@ -24,6 +23,10 @@ const {
   getUpcomingCalendarEvents,
   getGoogleTasks
 } = require('./src/main/google/googleClient')
+
+const getPreloadPath = () => {
+  return path.join(__dirname, 'preload.js')
+}
 
 const broadcastPetSave = () => {
   const windows = [mainWindow, shopWindow, workWindow, statsWindow, tasksWindow]
@@ -84,108 +87,27 @@ const broadcastTasks = () => {
 }
 
 const createTasksWindow = () => {
-  if (tasksWindow && !tasksWindow.isDestroyed()) {
-    tasksWindow.focus()
-    return tasksWindow
-  }
-
-  const bounds = ensureWindowBoundsAreVisible(
-    getWindowBounds('tasks', {
-      width: 720,
-      height: 520
-    })
-  )
-
-  tasksWindow = new BrowserWindow({
-    ...bounds,
-    minWidth: 520,
-    minHeight: 420,
-    frame: false,
-    transparent: false,
-    resizable: true,
-    alwaysOnTop: false,
-    skipTaskbar: false,
-    backgroundColor: '#111827',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
+  return createUtilityWindow({
+    existingWindow: tasksWindow,
+    setWindow: (win) => {
+      tasksWindow = win
+    },
+    windowName: 'tasks',
+    hash: 'tasks',
+    preloadPath: getPreloadPath()
   })
-
-  tasksWindow.setMenuBarVisibility(false)
-
-  tasksWindow.on('close', () => {
-    if (!tasksWindow || tasksWindow.isDestroyed()) return
-    setWindowBounds('tasks', tasksWindow.getBounds())
-  })
-
-  tasksWindow.on('closed', () => {
-    tasksWindow = null
-  })
-
-  if (!app.isPackaged) {
-    tasksWindow.loadURL('http://127.0.0.1:5173/#/tasks')
-  } else {
-    tasksWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
-      hash: '/tasks'
-    })
-  }
-
-  return tasksWindow
 }
 
 const createWorkWindow = () => {
-  if (workWindow && !workWindow.isDestroyed()) {
-    workWindow.focus()
-    return workWindow
-  }
-
-  const bounds = ensureWindowBoundsAreVisible(
-    getWindowBounds('work', {
-      width: 720,
-      height: 520
-    })
-  )
-
-
-  workWindow = new BrowserWindow({
-    ...bounds,
-    minWidth: 520,
-    minHeight: 420,
-    frame: false,
-    transparent: false,
-    resizable: true,
-    alwaysOnTop: false,
-    skipTaskbar: false,
-    backgroundColor: '#111827',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
+  return createUtilityWindow({
+    existingWindow: workWindow,
+    setWindow: (win) => {
+      workWindow = win
+    },
+    windowName: 'work',
+    hash: 'work',
+    preloadPath: getPreloadPath()
   })
-
-  workWindow.setMenuBarVisibility(false)
-
-  workWindow.on('close', () => {
-    if (!workWindow || workWindow.isDestroyed()) return
-    setWindowBounds('work', workWindow.getBounds())
-  })
-
-  workWindow.on('closed', () => {
-    workWindow = null
-  })
-
-  if (!app.isPackaged) {
-    workWindow.loadURL('http://127.0.0.1:5173/#/work')
-  } else {
-    workWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
-      hash: '/work'
-    })
-  }
-
-  return workWindow
 }
 
 const chooseRandomCrawlDirection = () => {
@@ -198,55 +120,18 @@ const chooseRandomCrawlDirection = () => {
 }
 
 const createShopWindow = () => {
-  if (shopWindow && !shopWindow.isDestroyed()) {
-    shopWindow.focus()
-    return shopWindow
-  }
-
-  const bounds = ensureWindowBoundsAreVisible(
-    getWindowBounds('shop', {
-      width: 720,
-      height: 520
-    })
-  )
-
-  shopWindow = new BrowserWindow({
-    ...bounds,
-    minWidth: 520,
-    minHeight: 420,
-    frame: false,
-    transparent: false,
-    resizable: true,
-    alwaysOnTop: false,
-    skipTaskbar: true,
-    backgroundColor: '#111827',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+  return createUtilityWindow({
+    existingWindow: shopWindow,
+    setWindow: (win) => {
+      shopWindow = win
+    },
+    windowName: 'shop',
+    hash: 'shop',
+    preloadPath: getPreloadPath(),
+    options: {
+      skipTaskbar: true
     }
   })
-
-  shopWindow.setMenuBarVisibility(false)
-
-  shopWindow.on('close', () => {
-    if (!shopWindow || shopWindow.isDestroyed()) return
-    setWindowBounds('shop', shopWindow.getBounds())
-  })
-
-  shopWindow.on('closed', () => {
-    shopWindow = null
-  })
-
-  if (!app.isPackaged) {
-    shopWindow.loadURL('http://127.0.0.1:5173/#/shop')
-  } else {
-    shopWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
-      hash: '/shop'
-    })
-  }
-
-  return shopWindow
 }
 
 const scheduleCrawlAfterIdle = () => {
