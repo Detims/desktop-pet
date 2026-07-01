@@ -3,6 +3,7 @@ const crypto = require('node:crypto')
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
 const { ensureWindowBoundsAreVisible } = require('./src/main/windows/windowBounds')
 const { createUtilityWindow } = require('./src/main/windows/createUtilityWindow')
+const { createStatsWindow } = require('./src/main/windows/createStatsWindow')
 const {
   loadPetSave,
   getPetSave,
@@ -315,42 +316,6 @@ const createPetContextMenu = (win) => {
     ]);
 }
 
-const createStatsWindow = () => {
-  statsWindow = new BrowserWindow({
-    width: 240,
-    height: 360,
-    parent: mainWindow,
-    frame: false,
-    transparent: true,
-    resizable: false,
-    movable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    hasShadow: false,
-    focusable: false,
-    backgroundColor: '#00000000',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  })
-
-  statsWindow.setAlwaysOnTop(true, 'screen-saver')
-  statsWindow.setIgnoreMouseEvents(true)
-  statsWindow.hide()
-
-  if (!app.isPackaged) {
-    statsWindow.loadURL('http://127.0.0.1:5173/#/stats')
-  } else {
-    statsWindow.loadFile(path.join(__dirname, 'dist/index.html'), {
-      hash: '/stats'
-    })
-  }
-
-  return statsWindow
-}
-
 const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 360,
@@ -397,7 +362,10 @@ const createWindow = () => {
   })
 
   const petMenu = createPetContextMenu(mainWindow);
-  createStatsWindow()
+  statsWindow = createStatsWindow({
+    mainWindow,
+    preloadPath: getPreloadPath()
+  })
 
   ipcMain.on('pet:show-context-menu', () => {
     isContextMenuOpen = true
