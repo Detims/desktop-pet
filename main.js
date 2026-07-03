@@ -1,6 +1,6 @@
 const path = require('node:path');
-const crypto = require('node:crypto')
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron/main');
+const { createMainWindow } = require('./src/main/windows/createMainWindow')
 const { ensureWindowBoundsAreVisible } = require('./src/main/windows/windowBounds')
 const { createUtilityWindow } = require('./src/main/windows/createUtilityWindow')
 const { createStatsWindow } = require('./src/main/windows/createStatsWindow')
@@ -16,14 +16,7 @@ const {
   getWindowBounds,
   setWindowBounds
 } = require('./src/main/state/petSaveStore')
-const {
-  authorizeGoogle,
-  disconnectGoogle,
-  getGoogleConnectionStatus,
-  getRecentEmails,
-  getUpcomingCalendarEvents,
-  getGoogleTasks
-} = require('./src/main/google/googleClient')
+const { registerIpcHandlers } = require('./src/main/ipc/registerIpcHandlers')
 
 const getPreloadPath = () => {
   return path.join(__dirname, 'preload.js')
@@ -317,41 +310,16 @@ const createPetContextMenu = (win) => {
 }
 
 const createWindow = () => {
-  mainWindow = new BrowserWindow({
-    width: 360,
-    height: 440,
-    frame: false,
-    transparent: true,
-    resizable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    hasShadow: false,
-    backgroundColor: '#00000000',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  // Keep pet above normal windows and fullscreen apps
-  mainWindow.setAlwaysOnTop(true, 'screen-saver');
-  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }) // MacOS
+  mainWindow = createMainWindow({
+    preloadPath: getPreloadPath()
+  })
 
   mainWindow.on('closed', () => {
-    if (statsWindow && !statsWindow.isDestroyed()) 
-      statsWindow.close()
-
-    if (shopWindow && !shopWindow.isDestroyed())
-      shopWindow.close()
-
-    if (workWindow && !workWindow.isDestroyed())
-      workWindow.close()
-
-    if (tasksWindow && !tasksWindow.isDestroyed()) {
-      tasksWindow.close()
-    }   
-
+    if (statsWindow && !statsWindow.isDestroyed()) statsWindow.close()
+    if (shopWindow && !shopWindow.isDestroyed()) shopWindow.close()
+    if (workWindow && !workWindow.isDestroyed()) workWindow.close()
+    if (tasksWindow && !tasksWindow.isDestroyed()) tasksWindow.close()
+     
     if (workTimer) {
       clearInterval(workTimer)
       workTimer = null
@@ -361,448 +329,61 @@ const createWindow = () => {
     mainWindow = null
   })
 
-  const petMenu = createPetContextMenu(mainWindow);
+  petMenu = createPetContextMenu(mainWindow)
+
   statsWindow = createStatsWindow({
     mainWindow,
     preloadPath: getPreloadPath()
   })
-
-  ipcMain.on('pet:show-context-menu', () => {
-    isContextMenuOpen = true
-
-    if (statsWindow) 
-      statsWindow.hide()
-
-    petMenu.popup({
-      window: mainWindow,
-      callback: () => {
-        isContextMenuOpen = false
-
-        if (mainWindow && !mainWindow.isDestroyed()) 
-          mainWindow.webContents.send('pet:context-menu-closed')
-      }
-    })
-  });
-
-  ipcMain.handle('pet:get-window-position', () => {
-    const win = BrowserWindow.getFocusedWindow() || mainWindow;
-
-    if (!win) {
-      return { x: 0, y: 0 }
-    }
-
-    const [x, y] = win.getPosition()
-    return { x, y }
-  });
-
-  // Dragging the pet around
-  ipcMain.on('pet:set-window-position', (_event, position) => {
-    const win = BrowserWindow.getFocusedWindow() || mainWindow
-
-    if (!win) return
-
-    const nextX = Math.round(position.x)
-    const nextY = Math.round(position.y)
-
-    win.setPosition(nextX, nextY)
-
-    crawlPosition = {
-      x: nextX,
-      y: nextY
-    }
-  });
-
-  // Start crawling after inactivity
-  ipcMain.on('pet:start-crawling', () => {
-    if (mainWindow) startPetCrawling(mainWindow)
-  })
-
-  ipcMain.on('pet:stop-crawling', () => {
-    stopPetCrawling({
-      byUser: true,
-      scheduleRestart: false
-    })
-  })
-
-  ipcMain.on('pet:show-stats-menu', (_event, position) => {
-    if (isContextMenuOpen) return
-    if (!statsWindow || statsWindow.isDestroyed()) return
-
-    statsWindow.setPosition(
-      Math.round(position.x),
-      Math.round(position.y)
-    )
-
-    statsWindow.showInactive()
-  })
-
-  ipcMain.on('pet:move-stats-menu', (_event, position) => {
-    if (isContextMenuOpen) return
-    if (!statsWindow || statsWindow.isDestroyed()) return
-    if (!statsWindow.isVisible()) return
-
-    statsWindow.setPosition(
-      Math.round(position.x),
-      Math.round(position.y)
-    )
-  })
-
-  ipcMain.on('pet:hide-stats-menu', () => {
-    if (!statsWindow || statsWindow.isDestroyed()) return
-
-    statsWindow.hide()
-  })
-
-  ipcMain.on('shop:close', () => {
-    if (!shopWindow || shopWindow.isDestroyed()) return
-
-    shopWindow.close()
-  })
-
-  const sendWorkUpdate = () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('pet:work-updated', activeWork)
-    }
-
-    if (workWindow && !workWindow.isDestroyed()) {
-      workWindow.webContents.send('pet:work-updated', activeWork)
-    }
-  }
-
-  ipcMain.on('pet:start-work', (_event, workOption) => {
-    if (activeWork) return
-
-    if (workWindow && !workWindow.isDestroyed()) {
-      workWindow.close()
-    }
-
-    stopPetCrawling({
-      byUser: false,
-      scheduleRestart: false
-    })
-
-    const startedAt = Date.now()
-    const endsAt = startedAt + workOption.durationSeconds * 1000
-
-    activeWork = {
-      id: workOption.id,
-      name: workOption.name,
-      currencyReward: workOption.currencyReward,
-      startedAt,
-      endsAt,
-      remainingSeconds: workOption.durationSeconds
-    }
-
-    sendWorkUpdate()
-
-    workTimer = setInterval(() => {
-      if (!activeWork) return
-
-      const remainingMs = activeWork.endsAt - Date.now()
-      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
-
-      activeWork = {
-        ...activeWork,
-        remainingSeconds
-      }
-
-      sendWorkUpdate()
-
-      if (remainingSeconds <= 0) {
-        clearInterval(workTimer)
-        workTimer = null
-
-        const completedWork = activeWork
-        activeWork = null
-
-        if (completedWork) {
-          updateCurrency(completedWork.currencyReward)
-        }
-
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pet:work-completed', completedWork)
-        }
-
-        if (workWindow && !workWindow.isDestroyed()) {
-          workWindow.webContents.send('pet:work-completed', completedWork)
-        }
-
-        sendWorkUpdate()
-        scheduleCrawlAfterIdle()
-      }
-    }, 1000)
-  })
-
-  ipcMain.on('pet:cancel-work', () => {
-    if (workTimer) {
-      clearInterval(workTimer)
-      workTimer = null
-    }
-
-    activeWork = null
-    sendWorkUpdate()
-    scheduleCrawlAfterIdle()
-  })
-
-  ipcMain.handle('pet:get-active-work', () => {
-    return activeWork
-  })
-
-  ipcMain.on('work:close', () => {
-    if (!workWindow || workWindow.isDestroyed()) return
-    workWindow.close()
-  })
-
-  ipcMain.handle('pet:get-save', () => {
-    return getPetSave()
-  })
-
-  ipcMain.handle('pet:purchase-item', (_event, item) => {
-    const save = getPetSave()
-    
-    if (!item || typeof item.price !== 'number') {
-      return {
-        success: false,
-        reason: 'Invalid item.',
-        save
-      }
-    }
-
-    if (save.currency < item.price) {
-      return {
-        success: false,
-        reason: 'Not enough currency.',
-        save
-      }
-    }
-
-    const nextSave = updateCurrency(-item.price)
-    broadcastPetSave()
-
-    return {
-      success: true,
-      save: nextSave
-    }
-  })
-
-  ipcMain.handle('pet:get-tasks', () => {
-    return getPetSave().tasks
-  })
-
-  ipcMain.handle('pet:add-task', (_event, taskInput) => {
-    const title = String(taskInput?.title ?? '').trim()
-    const notes = String(taskInput?.notes ?? '').trim()
-
-    if (!title) {
-      return {
-        success: false,
-        reason: 'Task title is required.',
-        tasks: getPetSave().tasks
-      }
-    }
-
-    const task = {
-      id: crypto.randomUUID(),
-      title,
-      notes,
-      completed: false,
-      createdAt: Date.now()
-    }
-
-    const tasks = addTask(task)
-    broadcastTasks()
-
-    return {
-      success: true,
-      task,
-      tasks
-    }
-  })
-
-  ipcMain.handle('pet:update-task', (_event, updatedTask) => {
-    if (!updatedTask?.id) {
-      return {
-        success: false,
-        reason: 'Task id is required.',
-        tasks: getPetSave().tasks
-      }
-    }
-
-    const tasks = updateTask(updatedTask)
-    broadcastTasks()
-
-    return {
-      success: true,
-      tasks
-    }
-  })
-
-  ipcMain.handle('pet:delete-task', (_event, taskId) => {
-    const tasks = deleteTask(taskId)
-    broadcastTasks()
-
-    return {
-      success: true,
-      tasks
-    }
-  })
-
-  ipcMain.on('tasks:close', () => {
-    if (!tasksWindow || tasksWindow.isDestroyed()) return
-    tasksWindow.close()
-  })
-
-  ipcMain.handle('google:get-status', () => {
-    return getGoogleConnectionStatus()
-  })
-
-  ipcMain.handle('google:connect', async () => {
-    try {
-      await authorizeGoogle()
-
-      return {
-        success: true,
-        connected: true
-      }
-    } catch (error) {
-      console.error('Google connect failed:', error)
-
-      return {
-        success: false,
-        connected: false,
-        reason: error instanceof Error ? error.message : 'Google connection failed.'
-      }
-    }
-  })
-
-  ipcMain.handle('google:disconnect', () => {
-    try {
-      disconnectGoogle()
-
-      const google = clearGoogleSync()
-      broadcastGoogleSync()
-
-      return {
-        success: true,
-        connected: false,
-        google
-      }
-    } catch (error) {
-      console.error('Google disconnect failed:', error)
-
-      return {
-        success: false,
-        connected: getGoogleConnectionStatus().connected,
-        google: getPetSave().google,
-        reason: error instanceof Error ? error.message : 'Google disconnect failed.'
-      }
-    }
-  })
-
-  ipcMain.handle('google:get-recent-emails', async () => {
-    try {
-      const emails = await getRecentEmails()
-
-      return {
-        success: true,
-        emails
-      }
-    } catch (error) {
-      console.error('Failed to fetch recent emails:', error)
-
-      return {
-        success: false,
-        emails: [],
-        reason: error instanceof Error ? error.message : 'Failed to fetch recent emails.'
-      }
-    }
-  })
-
-  ipcMain.handle('google:get-calendar-events', async () => {
-    try {
-      const events = await getUpcomingCalendarEvents()
-
-      return {
-        success: true,
-        events
-      }
-    } catch (error) {
-      console.error('Failed to fetch calendar events:', error)
-
-      return {
-        success: false,
-        events: [],
-        reason: error instanceof Error ? error.message : 'Failed to fetch calendar events.'
-      }
-    }
-  })
-
-  ipcMain.handle('google:get-tasks', async () => {
-    try {
-      const tasks = await getGoogleTasks()
-
-      return {
-        success: true,
-        tasks
-      }
-    } catch (error) {
-      console.error('Failed to fetch Google tasks:', error)
-
-      return {
-        success: false,
-        tasks: [],
-        reason: error instanceof Error ? error.message : 'Failed to fetch Google tasks.'
-      }
-    }
-  })
-
-  ipcMain.handle('google:get-latest-sync', () => {
-    return getPetSave().google
-  })
-
-  ipcMain.handle('google:sync-all', async () => {
-    try {
-      const [emails, calendarEvents, tasks] = await Promise.all([
-        getRecentEmails(),
-        getUpcomingCalendarEvents(),
-        getGoogleTasks()
-      ])
-
-      const googleSync = setGoogleSync({
-        emails,
-        calendarEvents,
-        tasks
-      })
-
-      broadcastGoogleSync()
-
-      return {
-        success: true,
-        google: googleSync
-      }
-    } catch (error) {
-      console.error('Failed to sync Google data:', error)
-
-      return {
-        success: false,
-        google: getPetSave().google,
-        reason: error instanceof Error ? error.message : 'Failed to sync Google data.'
-      }
-    }
-  })
-
-  // Run npm run dev, open new terminal, npm run start
-  if (!app.isPackaged) {
-    mainWindow.loadURL("http://127.0.0.1:5173");
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "dist/index.html"));
-  }
 
   return mainWindow;
 }
 
 app.whenReady().then(() => {
   loadPetSave();
+
+  registerIpcHandlers({
+    getMainWindow: () => mainWindow,
+    getStatsWindow: () => statsWindow,
+    getShopWindow: () => shopWindow,
+    getWorkWindow: () => workWindow,
+    getTasksWindow: () => tasksWindow,
+
+    getPetMenu: () => petMenu,
+
+    getPetSave,
+    updateCurrency,
+    addTask,
+    updateTask,
+    deleteTask,
+    setGoogleSync,
+    clearGoogleSync,
+
+    broadcastPetSave,
+    broadcastTasks,
+    broadcastGoogleSync,
+
+    isContextMenuOpen: () => isContextMenuOpen,
+    setContextMenuOpen: (value) => {
+      isContextMenuOpen = value
+    },
+
+    startPetCrawling,
+    stopPetCrawling,
+    scheduleCrawlAfterIdle,
+    setCrawlPosition: (position) => {
+      crawlPosition = position
+    },
+
+    getActiveWork: () => activeWork,
+    setActiveWork: (value) => {
+      activeWork = value
+    },
+    getWorkTimer: () => workTimer,
+    setWorkTimer: (value) => {
+      workTimer = value
+    }
+  })
 
   createWindow();
 
