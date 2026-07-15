@@ -1,10 +1,14 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { app } = require('electron/main')
+const { normalizePetSave, applyXPGain } = require('../pet/progression')
 
 const DEFAULT_PET_SAVE = {
   currency: 100,
   level: 1,
+  xp: 0,
+  toNextLevel: 100,
+  totalXpEarned: 0,
   tasks: [],
   google: {
     lastSyncedAt: null,
@@ -26,7 +30,7 @@ const getSavePath = () => {
 }
 
 const normalizePetSave = (parsedSave) => {
-  return {
+  const save = {
     ...DEFAULT_PET_SAVE,
     ...parsedSave,
     tasks: Array.isArray(parsedSave.tasks) ? parsedSave.tasks : [],
@@ -39,6 +43,8 @@ const normalizePetSave = (parsedSave) => {
       ...(parsedSave.windows ?? {})
     }
   }
+
+  return normalizePetSave(save)
 }
 
 const loadPetSave = () => {
@@ -84,6 +90,15 @@ const setPetSave = (nextSave) => {
   petSave = normalizePetSave(nextSave)
   savePetSave()
   return petSave
+}
+
+const addXP = (amount) => {
+  const result = applyXPGain(petSave, amount)
+
+  petSave = result.save
+  savePetSave()
+
+  return result
 }
 
 const updateCurrency = (amount) => {
@@ -195,6 +210,7 @@ module.exports = {
   savePetSave,
   getPetSave,
   setPetSave,
+  addXP,
   updateCurrency,
   setTasks,
   addTask,
