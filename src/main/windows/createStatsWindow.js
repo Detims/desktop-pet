@@ -7,7 +7,7 @@ const createStatsWindow = ({
 }) => {
   const statsWindow = new BrowserWindow({
     width: 240,
-    height: 360,
+    height: 480,
     parent: mainWindow,
     frame: false,
     transparent: true,

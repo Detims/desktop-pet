@@ -2,6 +2,7 @@ const path = require('node:path')
 const {
   loadPetSave,
   getPetSave,
+  addXP,
   updateCurrency,
   addTask,
   updateTask,
@@ -157,6 +158,7 @@ const createDesktopPetApp = () => {
       workController = createWorkController({
         getMainWindow: () => windowRegistry.getWindow('main'),
         getWorkWindow: () => windowRegistry.getWindow('work'),
+        addXP,
         updateCurrency,
         broadcastPetSave,
         stopPetCrawling: crawlingController.stopPetCrawling,
@@ -177,6 +179,7 @@ const createDesktopPetApp = () => {
       getPetMenu: () => petMenu,
 
       getPetSave,
+      addXP,
       updateCurrency,
       addTask,
       updateTask,

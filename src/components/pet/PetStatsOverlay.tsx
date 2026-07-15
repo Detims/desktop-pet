@@ -1,41 +1,49 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PET_STATS } from './PetStats'
+import { PetSave } from '../../types/pet'
 
 export function PetStatsOverlay() {
-  const [currency, setCurrency] = useState(0)
-  const [level, setLevel] = useState(1)
+  const [save, setSave] = useState<PetSave | null>(null)
 
   useEffect(() => {
-    window.desktopPet.getPetSave().then((save) => {
-      setCurrency(save.currency)
-      setLevel(save.level)
-    })
+    window.desktopPet.getPetSave().then(setSave)
 
-    return window.desktopPet.onPetSaveUpdated((save) => {
-      setCurrency(save.currency)
-      setLevel(save.level)
+    return window.desktopPet.onPetSaveUpdated((nextSave) => {
+      setSave(nextSave)
     })
   }, [])
 
   const stats = useMemo(() => {
-    return PET_STATS.map((stat) => {
-      if (stat.label === 'Currency') {
-        return {
-          ...stat,
-          value: currency
-        }
-      }
+    if (!save) return PET_STATS
 
+    return PET_STATS.map((stat) => {
       if (stat.label === 'Level') {
         return {
           ...stat,
-          value: level
+          value: save.level,
+          max: Math.max(save.level, 1)
+        }
+      }
+
+      if (stat.label === 'XP') {
+        return {
+          ...stat,
+          value: save.xp,
+          max: save.xpToNextLevel
+        }
+      }
+
+      if (stat.label === 'Currency') {
+        return {
+          ...stat,
+          value: save.currency,
+          max: 9999
         }
       }
 
       return stat
     })
-  }, [currency, level])
+  }, [save])
 
   return (
     <div className="pet-stats-menu">

@@ -85,6 +85,13 @@ export function DesktopPet() {
   const [activeWork, setActiveWork] = useState<ActivePetWork>(null)
 
   useEffect(() => {
+    return window.desktopPet.onPetLeveledUp((event) => {
+      setPetState('happy')
+      say(`Level up! I'm level ${event.level} now!`)
+    })
+  }, [])
+
+  useEffect(() => {
     window.desktopPet.getActiveWork().then(setActiveWork)
 
     return window.desktopPet.onWorkUpdated((nextWork) => {

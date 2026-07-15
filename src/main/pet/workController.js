@@ -2,6 +2,7 @@ const createWorkController = ({
   getMainWindow,
   getWorkWindow,
   updateCurrency,
+  addXP,
   broadcastPetSave,
   stopPetCrawling,
   scheduleCrawlAfterIdle
@@ -28,16 +29,27 @@ const createWorkController = ({
       workTimer = null
     }
 
+    const mainWindow = getMainWindow()
+    const workWindow = getWorkWindow()
+
     const completedWork = activeWork
     activeWork = null
 
     if (completedWork) {
       updateCurrency(completedWork.currencyReward)
-      broadcastPetSave()
-    }
 
-    const mainWindow = getMainWindow()
-    const workWindow = getWorkWindow()
+      const xpResult = addXP(completedWork.xpReward ?? 0)
+
+      broadcastPetSave()
+
+      if (xpResult.leveledUp && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('pet:leveled-up', {
+          level: xpResult.save.level,
+          levelsGained: xpResult.levelsGained,
+          xpGained: xpResult.xpGained
+        })
+      }
+    }
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('pet:work-completed', completedWork)
@@ -71,6 +83,7 @@ const createWorkController = ({
     activeWork = {
       id: workOption.id,
       name: workOption.name,
+      xpReward: workOption.xpReward,
       currencyReward: workOption.currencyReward,
       startedAt,
       endsAt,

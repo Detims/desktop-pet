@@ -133,6 +133,18 @@ contextBridge.exposeInMainWorld('desktopPet', {
         }
     },
 
+    onPetLeveledUp: (callback) => {
+        const listener = (_event, levelUpEvent) => {
+            callback(levelUpEvent)
+        }
+
+        ipcRenderer.on('pet:leveled-up', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:leveled-up', listener)
+        }
+    },
+
     getTasks: () => {
         return ipcRenderer.invoke('pet:get-tasks')
     },

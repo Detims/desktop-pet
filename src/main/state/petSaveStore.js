@@ -1,7 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { app } = require('electron/main')
-const { normalizePetSave, applyXPGain } = require('../pet/progression')
+const { applyXPGain, normalizeProgression } = require('../pet/progression')
 
 const DEFAULT_PET_SAVE = {
   currency: 100,
@@ -44,7 +44,7 @@ const normalizePetSave = (parsedSave) => {
     }
   }
 
-  return normalizePetSave(save)
+  return normalizeProgression(save)
 }
 
 const loadPetSave = () => {

@@ -3,6 +3,7 @@ export type PetworkOption = {
     name: string
     description: string
     durationSeconds: number
+    xpReward: number
     currencyReward: number
     requiredLevel: number
 }
@@ -13,6 +14,7 @@ export const PET_WORK_OPTIONS: PetworkOption[] = [
         name: 'Organize Desk',
         description: 'A short task that earns a small reward.',
         durationSeconds: 30,
+        xpReward: 15,
         currencyReward: 10,
         requiredLevel: 1
     },
@@ -21,6 +23,7 @@ export const PET_WORK_OPTIONS: PetworkOption[] = [
         name: 'Sort Emails',
         description: 'Help clean up recent emails.',
         durationSeconds: 60,
+        xpReward: 35,
         currencyReward: 25,
         requiredLevel: 2
     },
@@ -29,6 +32,7 @@ export const PET_WORK_OPTIONS: PetworkOption[] = [
         name: 'Calendar Planning',
         description: 'Review upcoming calendar events.',
         durationSeconds: 120,
+        xpReward: 70,
         currencyReward: 50,
         requiredLevel: 3
     }

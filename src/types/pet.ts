@@ -8,6 +8,7 @@ export type PetWorkOption = {
   name: string
   description: string
   durationSeconds: number
+  xpReward: number
   currencyReward: number
   requiredLevel: number
 }
@@ -15,6 +16,7 @@ export type PetWorkOption = {
 export type ActivePetWork = {
   id: string
   name: string
+  xpReward: number
   currencyReward: number
   startedAt: number
   endsAt: number
@@ -24,8 +26,17 @@ export type ActivePetWork = {
 export type PetSave = {
   currency: number
   level: number
+  xp: number
+  xpToNextLevel: number
+  totalXpEarned: number
   tasks: PetTask[]
   google: GoogleSyncData
+}
+
+export type LevelUpEvent = {
+  level: number
+  levelsGained: number
+  xpGained: number
 }
 
 export type PurchaseResult = {

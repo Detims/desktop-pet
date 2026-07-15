@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { PET_WORK_OPTIONS } from './PetWorkOptions'
 
-const CURRENT_LEVEL = 1
-
 type ActiveWork = {
   id: string
   name: string
+  xpReward: number,
   currencyReward: number
   startedAt: number
   endsAt: number
@@ -21,8 +20,19 @@ function formatTime(seconds: number) {
 
 export function PetWork() {
   const [coins, setCoins] = useState(0)
+  const [level, setLevel] = useState(1)
   const [activeWork, setActiveWork] = useState<ActiveWork>(null)
   const [message, setMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.desktopPet.getPetSave().then((save) => {
+      setLevel(save.level)
+    })
+
+    return window.desktopPet.onPetSaveUpdated((save) => {
+      setLevel(save.level)
+    })
+  }, [])
 
   useEffect(() => {
     window.desktopPet.getPetSave().then((save) => {
@@ -107,7 +117,7 @@ export function PetWork() {
 
         <section className="work-grid">
           {PET_WORK_OPTIONS.map((work) => {
-            const isLocked = CURRENT_LEVEL < work.requiredLevel
+            const isLocked = level < work.requiredLevel
             const isBusy = activeWork !== null
 
             return (
@@ -121,6 +131,11 @@ export function PetWork() {
                   <span>Level {work.requiredLevel}+</span>
                   <span>{formatTime(work.durationSeconds)}</span>
                   <span>{work.currencyReward} coins</span>
+                </div>
+
+                <div className="work-rewards">
+                  <span>+{work.currencyReward} coins</span>
+                  <span>+{work.xpReward} XP</span>
                 </div>
 
                 <button
