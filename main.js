@@ -17,6 +17,9 @@ const {
   setWindowBounds
 } = require('./src/main/state/petSaveStore')
 const { registerIpcHandlers } = require('./src/main/ipc/registerIpcHandlers')
+const { createCrawlingController } = require('./src/main/pet/crawlingController')
+
+let crawlingController = null
 
 const getPreloadPath = () => {
   return path.join(__dirname, 'preload.js')
@@ -48,13 +51,7 @@ let shopWindow = null
 let workWindow = null
 let tasksWindow = null
 
-let crawlTimer = null
-let crawlDecisionTimer = null
-let crawlIdleTimer = null
-let crawlPosition = null
-let isCrawling = false
 let isContextMenuOpen = false
-let crawlStoppedByUser = false
 let crawlVelocity = { x: 1, y: 0 }
 let activeWork = null
 let workTimer = null
@@ -104,15 +101,6 @@ const createWorkWindow = () => {
   })
 }
 
-const chooseRandomCrawlDirection = () => {
-  const speed = 1.2
-  
-  crawlVelocity = {
-    x: Math.random() > 0.5 ? speed : -speed,
-    y: 0
-  }
-}
-
 const createShopWindow = () => {
   return createUtilityWindow({
     existingWindow: shopWindow,
@@ -126,135 +114,6 @@ const createShopWindow = () => {
       skipTaskbar: true
     }
   })
-}
-
-const scheduleCrawlAfterIdle = () => {
-  if (activeWork) return
-
-  if (crawlIdleTimer) {
-    clearTimeout(crawlIdleTimer)
-    crawlIdleTimer = null
-  }
-
-  crawlIdleTimer = setTimeout(() => {
-    crawlIdleTimer = null
-
-    if (!crawlStoppedByUser && mainWindow && !mainWindow.isDestroyed()) {
-      startPetCrawling(mainWindow)
-    }
-  }, IDLE_BEFORE_CRAWL_MS)
-}
-
-const startPetCrawling = (win) => {
-  if (activeWork) return
-  if (!win || win.isDestroyed()) return
-  if (isCrawling) return
-
-  if (crawlIdleTimer) {
-    clearTimeout(crawlIdleTimer)
-    crawlIdleTimer = null
-  }
-
-  if (crawlTimer) {
-    clearInterval(crawlTimer)
-    crawlTimer = null
-  }
-
-  if (crawlDecisionTimer) {
-    clearInterval(crawlDecisionTimer)
-    crawlDecisionTimer = null
-  }
-
-  crawlStoppedByUser = false
-  isCrawling = true
-
-  const [startX, startY] = win.getPosition()
-  crawlPosition = { x: startX, y: startY }
-
-  chooseRandomCrawlDirection()
-
-  crawlTimer = setInterval(() => {
-    if (!win || win.isDestroyed() || !crawlPosition) return
-
-    const [width, height] = win.getSize()
-
-    const display = screen.getDisplayNearestPoint({
-      x: crawlPosition.x,
-      y: crawlPosition.y
-    })
-
-    const bounds = display.workArea
-
-    crawlPosition.x += crawlVelocity.x
-    crawlPosition.y += crawlVelocity.y
-
-    if (crawlPosition.x <= bounds.x) {
-      crawlPosition.x = bounds.x
-      crawlVelocity.x = Math.abs(crawlVelocity.x)
-    }
-
-    if (crawlPosition.x + width >= bounds.x + bounds.width) {
-      crawlPosition.x = bounds.x + bounds.width - width
-      crawlVelocity.x = -Math.abs(crawlVelocity.x)
-    }
-
-    if (crawlPosition.y <= bounds.y) {
-      crawlPosition.y = bounds.y
-      crawlVelocity.y = Math.abs(crawlVelocity.y)
-    }
-
-    if (crawlPosition.y + height >= bounds.y + bounds.height) {
-      crawlPosition.y = bounds.y + bounds.height - height
-      crawlVelocity.y = -Math.abs(crawlVelocity.y)
-    }
-
-    win.setPosition(
-      Math.round(crawlPosition.x),
-      Math.round(crawlPosition.y)
-    )
-  }, 16)
-
-  crawlDecisionTimer = setInterval(() => {
-    if (!isCrawling) return
-
-    const roll = Math.random()
-
-    if (roll < 0.1) {
-      stopPetCrawling({ 
-        byUser: false,
-        scheduleRestart: true
-      })
-      return
-    }
-
-    if (roll < 0.2) {
-      chooseRandomCrawlDirection()
-    }
-  }, 1000)
-}
-
-const stopPetCrawling = ({ byUser = false, scheduleRestart = true } = {}) => {
-  isCrawling = false
-  crawlStoppedByUser = byUser
-
-  if (crawlTimer) {
-    clearInterval(crawlTimer)
-    crawlTimer = null
-  }
-
-  if (crawlDecisionTimer) {
-    clearInterval(crawlDecisionTimer)
-    crawlDecisionTimer = null
-  }
-
-  if (crawlIdleTimer) {
-    clearTimeout(crawlIdleTimer)
-    crawlIdleTimer = null
-  }
-
-  if (scheduleRestart && !byUser) {
-    scheduleCrawlAfterIdle()
-  }
 }
 
 const createPetContextMenu = (win) => {
@@ -320,6 +179,10 @@ const createWindow = () => {
     if (workWindow && !workWindow.isDestroyed()) workWindow.close()
     if (tasksWindow && !tasksWindow.isDestroyed()) tasksWindow.close()
      
+    if (crawlingController) {
+      crawlingController.destroy()
+    }
+
     if (workTimer) {
       clearInterval(workTimer)
       workTimer = null
@@ -341,6 +204,11 @@ const createWindow = () => {
 
 app.whenReady().then(() => {
   loadPetSave();
+
+  crawlingController = createCrawlingController({
+    getMainWindow: () => mainWindow,
+    getActiveWork: () => activeWork
+  })
 
   registerIpcHandlers({
     getMainWindow: () => mainWindow,
@@ -368,12 +236,10 @@ app.whenReady().then(() => {
       isContextMenuOpen = value
     },
 
-    startPetCrawling,
-    stopPetCrawling,
-    scheduleCrawlAfterIdle,
-    setCrawlPosition: (position) => {
-      crawlPosition = position
-    },
+    startPetCrawling: crawlingController.startPetCrawling,
+    stopPetCrawling: crawlingController.stopPetCrawling,
+    scheduleCrawlAfterIdle: crawlingController.scheduleCrawlAfterIdle,
+    setCrawlPosition: crawlingController.setCrawlPosition,
 
     getActiveWork: () => activeWork,
     setActiveWork: (value) => {
