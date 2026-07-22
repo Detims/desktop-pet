@@ -2,14 +2,19 @@ const path = require('node:path')
 const {
   loadPetSave,
   getPetSave,
-  addXP,
   updateCurrency,
+  addXP,
+  getPetStats,
+  setPetStats,
+  updatePetStats,
+  decayPetStats,
   addTask,
   updateTask,
   deleteTask,
   setGoogleSync,
   clearGoogleSync
 } = require('./state/petSaveStore')
+const { createVitalsController } = require('./pet/vitalsController')
 const { createWindowRegistry } = require('./windows/windowRegistry')
 const { createWindowBroadcaster } = require('./state/windowBroadcaster')
 const { createMainWindow } = require('./windows/createMainWindow')
@@ -28,6 +33,7 @@ const createDesktopPetApp = () => {
   let isContextMenuOpen = false
   let isStarted = false
   let ipcRegistered = false
+  let vitalsController = null
   let crawlingController = null
   let workController = null
 
@@ -158,12 +164,25 @@ const createDesktopPetApp = () => {
       workController = createWorkController({
         getMainWindow: () => windowRegistry.getWindow('main'),
         getWorkWindow: () => windowRegistry.getWindow('work'),
+        updatePetStats,
         addXP,
         updateCurrency,
         broadcastPetSave,
         stopPetCrawling: crawlingController.stopPetCrawling,
         scheduleCrawlAfterIdle: crawlingController.scheduleCrawlAfterIdle
       })
+    }
+
+    if (!vitalsController) {
+      vitalsController = createVitalsController({
+        decayPetStats,
+        updatePetStats,
+        getPetSave,
+        broadcastPetSave,
+        getMainWindow: () => windowRegistry.getWindow('main')
+      })
+
+      vitalsController.start()
     }
   }
 
@@ -228,6 +247,10 @@ const createDesktopPetApp = () => {
 
     if (crawlingController) {
       crawlingController.destroy()
+    }
+
+    if (vitalsController) {
+      vitalsController.destroy()
     }
   }
 

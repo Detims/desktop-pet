@@ -85,6 +85,20 @@ export function DesktopPet() {
   const [activeWork, setActiveWork] = useState<ActivePetWork>(null)
 
   useEffect(() => {
+    return window.desktopPet.onPetVitalsAlert((alert) => {
+      if (alert.type === 'health') {
+        setPetState('sad')
+      } else if (alert.type === 'energy') {
+        setPetState('sad')
+      } else {
+        setPetState('sad')
+      }
+
+      say(alert.message)
+    })
+  }, [])
+
+  useEffect(() => {
     return window.desktopPet.onPetLeveledUp((event) => {
       setPetState('happy')
       say(`Level up! I'm level ${event.level} now!`)

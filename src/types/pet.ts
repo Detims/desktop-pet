@@ -23,14 +23,29 @@ export type ActivePetWork = {
   remainingSeconds: number
 } | null
 
+export type PetStats = {
+  health: number
+  hunger: number
+  thirst: number
+  energy: number
+  mood: number
+  lastUpdatedAt: number
+}
+
 export type PetSave = {
   currency: number
   level: number
   xp: number
   xpToNextLevel: number
   totalXpEarned: number
+  stats: PetStats
   tasks: PetTask[]
   google: GoogleSyncData
+}
+
+export type PetVitalsAlert = {
+  type: 'health' | 'hunger' | 'thirst' | 'energy' | 'mood'
+  message: string
 }
 
 export type LevelUpEvent = {

@@ -73,6 +73,18 @@ contextBridge.exposeInMainWorld('desktopPet', {
         ipcRenderer.send('shop:close')
     },
 
+    onPetVitalsAlert: (callback) => {
+        const listener = (_event, alert) => {
+            callback(alert)
+        }
+
+        ipcRenderer.on('pet:vitals-alert', listener)
+
+        return () => {
+            ipcRenderer.removeListener('pet:vitals-alert', listener)
+        }
+    },
+
     startWork: (workOption) => {
         ipcRenderer.send('pet:start-work', workOption)
     },

@@ -73,6 +73,10 @@ declare global {
         callback: (save: PetSave) => void
       ) => () => void
 
+      onPetVitalsAlert: (
+        callback: (alert: PetVitalsAlert) => void
+      ) => () => void
+
       onPetLeveledUp: (
         callback: (event: LevelUpEvent) => void
       ) => () => void

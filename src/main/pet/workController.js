@@ -3,6 +3,7 @@ const createWorkController = ({
   getWorkWindow,
   updateCurrency,
   addXP,
+  updatePetStats,
   broadcastPetSave,
   stopPetCrawling,
   scheduleCrawlAfterIdle
@@ -40,6 +41,13 @@ const createWorkController = ({
 
       const xpResult = addXP(completedWork.xpReward ?? 0)
 
+      updatePetStats({
+        mood: 8,
+        energy: -5,
+        hunger: -3,
+        thirst: -5
+      })
+
       broadcastPetSave()
 
       if (xpResult.leveledUp && mainWindow && !mainWindow.isDestroyed()) {
@@ -76,6 +84,13 @@ const createWorkController = ({
       byUser: false,
       scheduleRestart: false
     })
+
+    updatePetStats({
+      energy: -5,
+      mood: -1
+    })
+
+    broadcastPetSave()
 
     const startedAt = Date.now()
     const endsAt = startedAt + workOption.durationSeconds * 1000
