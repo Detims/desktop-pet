@@ -2,6 +2,16 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { app } = require('electron/main')
 const { applyXPGain, normalizeProgression } = require('../pet/progression')
+const { normalizeStats, applyStatEffects, calculatePassiveStatDecay } = require('../pet/petStats')
+
+const DEFAULT_PET_STATS = {
+  health: 100,
+  hunger: 100,
+  thirst: 100,
+  energy: 100,
+  mood: 100,
+  lastUpdatedAt: Date.now()
+}
 
 const DEFAULT_PET_SAVE = {
   currency: 100,
@@ -9,6 +19,7 @@ const DEFAULT_PET_SAVE = {
   xp: 0,
   toNextLevel: 100,
   totalXpEarned: 0,
+  stats: DEFAULT_PET_STATS,
   tasks: [],
   google: {
     lastSyncedAt: null,
@@ -33,6 +44,10 @@ const normalizePetSave = (parsedSave) => {
   const save = {
     ...DEFAULT_PET_SAVE,
     ...parsedSave,
+    stats: normalizeStats({
+      ...DEFAULT_PET_STATS,
+      ...(parsedSave.stats ?? {})
+    }),
     tasks: Array.isArray(parsedSave.tasks) ? parsedSave.tasks : [],
     google: {
       ...DEFAULT_PET_SAVE.google,
@@ -90,6 +105,40 @@ const setPetSave = (nextSave) => {
   petSave = normalizePetSave(nextSave)
   savePetSave()
   return petSave
+}
+
+const getPetStats = () => {
+  return petSave.stats
+}
+
+const setPetStats = (stats) => {
+  petSave = {
+    ...petSave,
+    stats: normalizeStats(stats)
+  }
+
+  savePetSave()
+  return petSave.stats
+}
+
+const updatePetStats = (effects) => {
+  petSave = {
+    ...petSave,
+    stats: applyStatEffects(petSave.stats, effects)
+  }
+
+  savePetSave()
+  return petSave.stats
+}
+
+const decayPetStats = () => {
+  petSave = {
+    ...petSave,
+    stats: calculatePassiveStatDecay(petSave.stats)
+  }
+
+  savePetSave()
+  return petSave.stats
 }
 
 const addXP = (amount) => {
@@ -210,9 +259,12 @@ module.exports = {
   savePetSave,
   getPetSave,
   setPetSave,
-  addXP,
   updateCurrency,
-  setTasks,
+  addXP,
+  getPetStats,
+  setPetStats,
+  updatePetStats,
+  decayPetStats,
   addTask,
   updateTask,
   deleteTask,
